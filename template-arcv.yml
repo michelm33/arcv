@@ -1,0 +1,75 @@
+# Name of the host on the LAN where the repository is located
+host: yourhostname
+
+# Absolute path to the repository on 'host'
+# Default value is 'Archive' below user's home
+storage: "/home/yourlogin/Archive"
+
+# Mountpoint if repository is not accessed locally from 'host'
+# Either of the following:
+# - absolute path to the repository when this latter is accessed via a mounted folder
+# - a data source address as accepted by the `sumo` command line (see https://slashetc.fr/en/products/mountpilot/)
+# Default value is a NFS address with a repo location as described by 'storage' above
+storage-via-mount: "yourhostname:/home/yourlogin/Archive"
+
+# The command to use to copy files into the repository
+copy-cmd: "rsync"
+
+# The copy command to use to copy files into the repository
+copy-args: "-a -X --info=NONE"
+
+# The copy command to use to perform internal copies like backup files
+copy-args-intern: "-a -X --info=NONE"
+
+# File patterns for files to be excluded from revision control
+exclude: 
+  - ".nfs*" 
+  - ".swp*" 
+  - "RCS" 
+  - "SCCS" 
+  - "CVS" 
+  - "CVS.adm" 
+  - "RCSLOG" 
+  - "cvslog.*" 
+  - "tags" 
+  - "TAGS" 
+  - ".make.state" 
+  - ".nse_depinfo" 
+  - "*~" 
+  - ",*"  
+  - "_$*" 
+  - "*$" 
+  - "*.old" 
+  - "*.bak" 
+  - "*.BAK" 
+  - "*.orig" 
+  - "*.rej" 
+  - ".del-*" 
+  - "*.a" 
+  - "*.olb" 
+  - "*.o" 
+  - "*.obj" 
+  - "*.so" 
+  - "*.exe" 
+  - "*.Z" 
+  - "*.elc" 
+  - "*.ln" 
+  - "core" 
+  - ".svn" 
+  - ".git" 
+  - ".hg" 
+  - ".bzr"
+
+# The git diff arguments if git is used for diffing
+git-diff-args: "-w --word-diff=plain --word-diff-regex=."
+#--out-format=%f 
+
+# User name when exporting to GitHub
+user-name: Your Name
+
+# User email when exporting to GitHub
+user-email: your@email.com
+
+# URL of sumo package if needed for mounting `storage-via-mount`
+mountpilot-pkg: https://slashetc.fr/download/mountpilot_2.0-2_amd64.deb
+# Mandatory newline

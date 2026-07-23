@@ -1,0 +1,329 @@
+ARCV(8)                 System Administration Utilities                ARCV(8)
+
+NAME
+       Arcv - arcv is a lightweight, easy-to-use revision control system which
+       keeps untouched the user's original source files and folders
+
+SYNOPSIS
+       arcv [OPTIONS] [COMMAND]
+
+       COMMAND:
+
+       branch  BRANCH_FOLDER[:REVISION | RELEASE TAG]
+
+              Branch off a revision
+
+       check
+
+              Tell whether there are uncommitted modifications
+
+       co  [REVISION | RELEASE TAG | FILENAME[:REVISION]]
+
+              Either update current source folder with head revision (no argu‐
+              ments)  or  checkout  resp. the revision, release tag, file from
+              head revision to the specified output folder
+
+       diff  [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
+
+              Make a diff with the specified revision using system diff tool
+
+       export  [DIRECTORY]
+
+              Export to a remote Git repo
+
+       git  [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
+
+              Make a diff with the specified revision using git
+
+       hash  [DIRECTORY]
+
+              Display the hash signature for the head revision or  the  speci‐
+              fied folder
+
+       list
+
+              List the existing source folders stored in the repository
+
+       log  [FILENAME]
+
+              Show  the  revision log messages from most recent to the oldest,
+              for the whole source or only the specified file.
+
+       meld  [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
+
+              Make a diff with the specified revision using meld tool
+
+       pub
+
+              Creates a new release by tagging the head revision with the con‐
+              tent of the VERSION.txt file.
+
+       rev
+
+              Display the head revision number
+
+       tarball  [REVISION | head]
+
+              Create  a tarball for the current source folder or the specified
+              revision
+
+       OPTIONS:
+
+       --debug
+
+              Activate debug logs
+
+       --silent
+
+              Silent mode
+
+       --source =DIRECTORY
+
+              Source directory to checkout from the repository
+
+       --verbose
+
+              Verbose mode
+
+       -X, --exclude =FILE PATTERNS
+
+              Prevent certain file patterns to be checked in
+
+       -f =FILENAME
+
+              Configure the arcv operational config filename (permament)
+
+       -m, --message =STRING
+
+              Commit log message
+
+       -n
+
+              Assume 'No' when prompted for confirmation
+
+       -o, --output =DIRECTORY
+
+              Output folder for checkouts or tarball exports
+
+       -y
+
+              Assume 'Yes' when prompted for confirmation
+
+DESCRIPTION
+       arcv is a lightweight, easy-to-use revision control system which  keeps
+       untouched the user's original source files and folders.
+
+       Unless  some  traditional  well-known  revision control systems, 'arcv'
+       fully respects the user's source folder integrity and  does  not  'pol‐
+       lute' it with any additional files to achieve revision control. The re‐
+       vision control data are centralized in a dedicated folder, the  reposi‐
+       tory, which can be either a local directory or a mountpoint to a direc‐
+       tory located on an external system.
+
+       'arcv' only relies on standard system tools and there's  no  additional
+       command set overlay needed to learn and use, e.g., for adding or remov‐
+       ing files. For instance, to exclude and remove a file from the revision
+       control, it is enough to remove the file from the system and commit the
+       new revision. To add a new file, this file just needs to be present be‐
+       fore commit.
+
+       The architecture of 'arcv' is readable and open, which enables users to
+       keep full control of the revisions and easily apply  common  corrective
+       actions  without pain. E.g. if the user only recognizes somewhen after‐
+       wards that a log message was incomplete or  incorrect,  it  can  simply
+       modify  the  CHANGE_LOG file containing the message, without needing to
+       execute multiple operations and the tooling skills coming along.
+
+       Overall, the above few mentioned features enable 'arcv' to be of an ex‐
+       treme  simplicity  of use at the reach of anybody, even non-developers.
+       It enables an instant step-in and a drastic reduction of  the  learning
+       curve  and  daily  time  overhead generally required to manage revision
+       control.
+
+       AUDIENCE
+
+              arcv can be used by developers for the following purposes:
+
+              - Individual developers or single person-lead projects
+
+              - Early development stages of projects, prototyping
+
+              - Individual, well-targeted, independent  development  lines  or
+              branches, which can be easily integrated into the main branch or
+              another revision control system without polluting or unnecessar‐
+              ily complexifying his historical record.
+
+              It can also be used as general-purpose incremental backup tool.
+
+       PLATFORMS
+
+              Arcv  is  a  bash  script  primarly  developed  and tested under
+              Ubuntu.  Because it features only minimalistic dependencies,  it
+              is  deemed to run on most Linux systems and Cygwin-enhanced Win‐
+              dows systems.
+
+       DOCUMENTATION
+
+              Please refer to the online page  https://slashetc.fr/en/develop‐
+              ertoolsforlinux/arcv/arcv__documentation.html to access the full
+              documentation:
+
+              - Command usage with full examples
+
+              - Architecture insight
+
+              - Other pratical information
+
+       SYSTEM DEPENDENCIES
+
+              Arcv automatically handles dependencies toward  external  system
+              packages,  i.e. it attempts to install all required system pack‐
+              ages, e.g. meld or tar, when necessary.
+
+COMMAND DETAILS
+       branch BRANCH_FOLDER[:REVISION | RELEASE TAG]
+
+              Branch off a revision.
+
+       check
+
+              Tells whether there are uncommitted modifications. Return 0 when
+              so, 1 otherwise.
+
+       co [REVISION | RELEASE TAG | FILENAME[:REVISION]]
+
+              When used without argument, checks out all files of the head re‐
+              vision. Any file of the current source may  get  overwritten  or
+              removed.   Otherwise, checks out the specified revision, release
+              tag or file from head revision to the specified output folder.
+
+       diff [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
+
+              Makes a diff with the specified revision using the  system  diff
+              tool.  When no revision number is supplied, the head revision is
+              considered by default.  Returns 0  when  no  difference  is  de‐
+              tected, 1 otherwise.
+
+       export [DIRECTORY]
+
+              When used without argument, exports the head revision to the re‐
+              mote Git repo.  When the path to a folder is supplied  as  argu‐
+              ment, exports the content of that folder to the remote Git repo.
+              This latter usage is suitable e.g. to export the  clean  release
+              version of the source file tree, built at another location.  The
+              URL of the remote Git repo shall be given in GITHUB.txt
+
+       git [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
+
+              Makes a diff with the specified revision using git.  When no re‐
+              vision  number  is  supplied, the head revision is considered by
+              default.
+
+       hash [DIRECTORY]
+
+              Displays the hash signature of the head revision when  no  argu‐
+              ment  is  supplied.   Otherwise, computes the hash signature for
+              the passed directory path
+
+       list
+
+              Lists the existing source folders stored in the repository
+
+       log [FILENAME]
+
+              Without argument, shows the global commit history of the  source
+              folder.   Otherwise,  shows the commit history for the specified
+              file.  The global history is always shown from  most  recent  to
+              the  oldest in batches of 5.  The file-specific history is shown
+              from most recent to the oldest as a terminal  menu,  from  which
+              the changes can be checked against head revision
+
+       meld [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
+
+              Makes  a diff with the specified revision using meld tool.  When
+              no revision number is supplied, the head revision is  considered
+              by default.
+
+       pub
+
+              Creates a new release by tagging the head revision with the con‐
+              tent of the VERSION.txt file.  Then it prompts the user for  the
+              next version and updates VERSION.txt accordingly.
+
+       rev
+
+              Displays the head revision number
+
+       tarball [REVISION | head]
+
+              Creates a tarball for the current source folder or the specified
+              revision.  When used without argument, creates a tarball for the
+              current source folder, i.e. the current working directory.  When
+              a revision number is supplied as argument, creates a tarball for
+              the  specified revision.  In both cases, the current working di‐
+              rectory must be the root of the versioned folder.
+
+OPTIONS DETAILS
+       --debug
+
+              Activate debug logs
+
+       --silent
+
+              Silent mode. Hides messages which  are  usually  displayed  even
+              when verbose mode is not active.
+
+       --source DIRECTORY
+
+              Source  directory  to  checkout  from the repository. The source
+              folder to checkout can be specified with this option instead  of
+              resolving the source folder from the current working directory.
+
+       --verbose
+
+              Verbose mode
+
+       -X, --exclude FILE PATTERNS
+
+              Prevent  certain  file patterns to be checked in.  The file pat‐
+              terns must be supplied as a coma-separated list of file patterns
+
+       -f FILENAME
+
+              Arcv operational configuration filename, if different of the de‐
+              fault one coming along with the app, modified or not.
+
+       -m, --message STRING
+
+              Log message
+
+       -n
+
+              Assume 'No' answer for any confirmation request
+
+       -o, --output DIRECTORY
+
+              Output folder for checkouts or tarball exports
+
+       -y
+
+              Assume 'Yes' answer for any confirmation request
+
+EXAMPLES
+              Please check the online cheatsheet https://slashetc.fr/en/devel‐
+              opertoolsforlinux/arcv/arcv__cheatsheet.html
+
+AUTHOR
+       Written by Michel MEHL
+
+REPORTING BUGS
+       Report bugs to <michel.mehl@slashetc.fr>
+
+COPYRIGHT
+       Copyright © 2024-2026 Michel Mehl.  All rights reserved.   Tous  droits
+       réservés (France).
+
+       License terms written down in file LICENSE.txt Les termes de la licence
+       sont détaillés dans le fichier LICENSE.txt
+
+Arcv 1.0.0                       juillet 2026                          ARCV(8)

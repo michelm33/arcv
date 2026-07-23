@@ -1,0 +1,13 @@
+Source: arcv
+Maintainer: Michel Mehl <michel.mehl@slashetc.fr>
+Section: misc
+Priority: optional
+Standards-Version: 4.7.0
+Build-Depends: debhelper-compat (= 13)
+
+Package: arcv
+Homepage: https://github.com/michelm33/arcv
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, shell-api (=1.1-0)
+Description: Arcv revision control tool
+ Arcv revision control tool
