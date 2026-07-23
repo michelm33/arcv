@@ -1,0 +1,129 @@
+ifndef::image_fmt[]
+:image_fmt: svg
+endif::[]
+:toc: yes
+:toclevels: 4
+:stem:
+:sectnums:
+:sectnumlevels: 0
+:icons: font
+:homedir: .
+//:imagesdir: images
+:docinfo: shared
+:press: article
+:linkcss:
+ifdef::html[]
+:staticimgdir: ../images/bank/original/static
+:svgimgdir: ../images/vector
+endif::[]
+ifndef::html[]
+:staticimgdir: ../_images/bank/original/static
+:svgimgdir: ../../images/arcv
+endif::[]
+:doubleslash: //
+:enterkey: enter key &#x21B5;
+:enterkeyshort: &#x21B5;
+:arrowupkey: &#x2191;
+:arrowdownkey: &#x2193;
+:homekey: &#x21F1;
+:endkey: &#x21F2;
+:pageupkey: &#x21DE;
+:pagedownkey: &#x21DF;
+:exampleimagewidth_smallscreen: 70%
+:paypal: https://www.paypal.com/donate/?hosted_button_id=G2QSV9ZD4EB4A
+:patreon: https://www.patreon.com/14930736/join
+:folderindent: {nbsp}{nbsp}{nbsp}{nbsp}{nbsp}{nbsp}
+:folder: &#x1F4C1;
+:file: &#x1F4C4;
+:checkin: &#x27A1;
+:checkout: &#x2B05;
+:arcv_version: 1.0-0
+:shellapi_version: 1.1-0
+
+== In a nutshell
+
+*arcv* is a safe, easy-to-use & learn revision control system which leaves the user's original source file tree intact and ensures revisions integrity.
+
+Its simplicity of use enables instant step-in and limits to its bare minimum the learning curve and the daily time overhead to manage revision control.
+
+*arcv* only relies on standard system tools and unless other tools it does not define its own command set overlay for managing files.
+
+== Installation
+
+For convenience, the script `install_arcv.sh` is supplied for an instant installation. This will install 2 debian packages `arcv` and `shell-api`.
+
+++++
+<div class="paragraph">
+<p><a href="/download/install_arcv.sh" download="install_arcv.sh">Click to download</a> and then run it:</p>
+</div>
+++++
+
+[source=bash]
+----
+sudo install_arcv.sh
+----
+
+If you prefer or if necessary, you can go through the installation steps described in link:arcv_documentation.html#_download_and_installation[Download and installation] section of the arcv documentation.
+
+== Configuration
+
+1) To create the default configuration file: 
+[source=bash]
+----
+av check
+----
+
+NOTE: This creates `.config/Arcv/arcv.yml` , which contains a parameter pointing to `~/arcv.yml`.
+
+2) Configure in `~/arcv.yml` the host and the path of the directory used as central repository 
+
+
+[cols="25%,75%",title="Operational configuration parameters"]
+|===
+| Parameter | Value
+
+| host a| Name of the host on the LAN where the repository is located
+| storage a| Absolute path to the repository on 'host'
+| storage-via-mount a| 
+Mountpoint path or a sumo address to the repository if this latter is not accessed locally from 'host'
+
+|===
+
+NOTE: To try out arcv locally directly after installation, it is enough to set `host` to the local hostname and `storage` to the absolute path to the directory used as repository.
+
+NOTE: If you move `arcv.yml` in another place, call `av -f your/new/path/to/arcv.yml`.
+
+Comprehensive documentation of all configuration parameters are described in the link:arcv_documentation.html#_operational_configuration[Operational configuration] section of the arcv documentation.
+
+== Manage file revisions
+
+From here on, you can put your project folder under revision control simply by executing
+
+[source=bash, title="Initiate revision control"]
+----
+cd my/project/folder/
+
+av
+----
+
+At that point, revision 0 of the project is backed up into the repository and can be retrieved later. Further changes can be checked in by executing `av`.
+
+[source=bash, title="Check in new files"]
+----
+av
+----
+
+NOTE: Check the link:arcv_cheatsheet.html[Cheatsheet] page for an oversight of all available operations.
+
+NOTE: For a comprehensive documentation of all commands, please check the link:arcv_documentation.html#_commands[Commands] section of the arcv documentation.
+
+== Academic use case
+
+The following pictures show an academic use case. The first diagram is a scenario in which a folder containing 2 files are initially put under revision control. Then, the new file with the dashes is added to the folder and checked in. In the next folder update, the dashed file is actually removed and replaced with the new light blue file. At last, the dark blue file is added and checked in.
+
+image::{svgimgdir}/arcv_basic_arch.svg[Check-in illustration, width=60%,align=center]
+
+The following diagram shows a scenario where revision 2 of the previously checked in files is retrieved (checked out):
+
+image::{svgimgdir}/arcv_basic_arch_checkout.svg[Check-out illustration, width=60%,align=center]
+
