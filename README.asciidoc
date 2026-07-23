@@ -54,7 +54,7 @@ For convenience, the script `install_arcv.sh` is supplied for an instant install
 
 ++++
 <div class="paragraph">
-<p><a href="/download/install_arcv.sh" download="install_arcv.sh">Click to download</a> and then run it:</p>
+<p><a href="https://slashetc.fr/download/install_arcv.sh" download="install_arcv.sh">Click to download</a> and then run it:</p>
 </div>
 ++++
 
@@ -63,7 +63,7 @@ For convenience, the script `install_arcv.sh` is supplied for an instant install
 sudo install_arcv.sh
 ----
 
-If you prefer or if necessary, you can go through the installation steps described in link:arcv_documentation.html#_download_and_installation[Download and installation] section of the arcv documentation.
+If you prefer or if necessary, you can go through the installation steps described in link:https://slashetc.fr/en/developertoolsforlinux/arcv/arcv_documentation.html#_download_and_installation[Download and installation] section of the arcv documentation.
 
 == Configuration
 
@@ -93,7 +93,7 @@ NOTE: To try out arcv locally directly after installation, it is enough to set `
 
 NOTE: If you move `arcv.yml` in another place, call `av -f your/new/path/to/arcv.yml`.
 
-Comprehensive documentation of all configuration parameters are described in the link:arcv_documentation.html#_operational_configuration[Operational configuration] section of the arcv documentation.
+Comprehensive documentation of all configuration parameters are described in the https://slashetc.fr/en/developertoolsforlinux/arcv/arcv_documentation.html#_operational_configuration[Operational configuration] section of the arcv documentation.
 
 == Manage file revisions
 
@@ -113,17 +113,17 @@ At that point, revision 0 of the project is backed up into the repository and ca
 av
 ----
 
-NOTE: Check the link:arcv_cheatsheet.html[Cheatsheet] page for an oversight of all available operations.
+NOTE: Check the link:https://slashetc.fr/en/developertoolsforlinux/arcv/arcv_cheatsheet.html[Cheatsheet] page for an oversight of all available operations.
 
-NOTE: For a comprehensive documentation of all commands, please check the link:arcv_documentation.html#_commands[Commands] section of the arcv documentation.
+NOTE: For a comprehensive documentation of all commands, please check the link:https://slashetc.fr/en/developertoolsforlinux/arcv/arcv_documentation.html#_commands[Commands] section of the arcv documentation.
 
 == Academic use case
 
 The following pictures show an academic use case. The first diagram is a scenario in which a folder containing 2 files are initially put under revision control. Then, the new file with the dashes is added to the folder and checked in. In the next folder update, the dashed file is actually removed and replaced with the new light blue file. At last, the dark blue file is added and checked in.
 
-image::{svgimgdir}/arcv_basic_arch.svg[Check-in illustration, width=60%,align=center]
+image::https://slashetc.fr/en/developertoolsforlinux/images/vector/arcv_basic_arch.svg[Check-in illustration, width=60%,align=center]
 
 The following diagram shows a scenario where revision 2 of the previously checked in files is retrieved (checked out):
 
-image::{svgimgdir}/arcv_basic_arch_checkout.svg[Check-out illustration, width=60%,align=center]
+image::https://slashetc.fr/en/developertoolsforlinux/images/vector/arcv_basic_arch_checkout.svg[Check-out illustration, width=60%,align=center]
 
