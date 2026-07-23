@@ -121,9 +121,9 @@ NOTE: For a comprehensive documentation of all commands, please check the link:a
 
 The following pictures show an academic use case. The first diagram is a scenario in which a folder containing 2 files are initially put under revision control. Then, the new file with the dashes is added to the folder and checked in. In the next folder update, the dashed file is actually removed and replaced with the new light blue file. At last, the dark blue file is added and checked in.
 
-image::{svgimgdir}/arcv_basic_arch.svg[Check-in illustration, width=60%,align=center]
+image::https://slashetc.fr/en/developertoolsforlinux/images/vector/arcv_basic_arch.svg[Check-in illustration, width=60%,align=center]
 
 The following diagram shows a scenario where revision 2 of the previously checked in files is retrieved (checked out):
 
-image::{svgimgdir}/arcv_basic_arch_checkout.svg[Check-out illustration, width=60%,align=center]
+image::https://slashetc.fr/en/developertoolsforlinux/images/vector/arcv_basic_arch_checkout.svg[Check-out illustration, width=60%,align=center]
 
