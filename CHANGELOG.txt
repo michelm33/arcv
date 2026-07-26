@@ -1,1 +1,9 @@
+* Hot fix release
+  - New features: added "repo" command to get information on repository. Currently, only "av repo git-repo" is available
+  - Improvs: exclusion filters for temp nfs and swap files
+  - Fixes: 
+    * HOT: removed folders were checked out (critical)
+    * Makefile 'export target
+    * There could be words in local language appearing in the generated man page (month at end of page)
+
 * First official, public release

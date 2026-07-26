@@ -37,8 +37,6 @@ endif::[]
 :file: &#x1F4C4;
 :checkin: &#x27A1;
 :checkout: &#x2B05;
-:arcv_version: 1.0-0
-:shellapi_version: 1.1-0
 
 == In a nutshell
 

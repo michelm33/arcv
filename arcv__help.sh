@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__help.sh
-# Release file date: 2026-07-23 13:39
-# App version: 1.0.0
-# App source revision: 187
-# App source signature: 9587ec243d426d1f1f5fa7cc56c40357fe0bc6534e238c84dfcee4dfd8b54a87
-# Source file last modification: 2026-07-15 17:21:51.851329003 +0200
+# Release file date: 2026-07-26 13:11
+# App version: 1.0.1
+# App source revision: 207
+# App source signature: 746cd55fc524cfc06dc7647232c2f81c44d6b2cf6125a49ea4f119de443df7b2
+# Source file last modification: 2026-07-26 11:29:13.500156335 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -183,7 +183,7 @@ $(Arcv__susage man)
 
 *DESCRIPTION*
 
-arcv is a lightweight, easy-to-use revision control system which keeps untouched the user's original source files and folders.
+arcv is a lightweight, safe, easy-to-use&learn revision control system which leaves the user's original source file tree intact and ensures revisions integrity.
 
 Unless some traditional well-known revision control systems, 'arcv' fully respects the user's source folder integrity and does not 'pollute' it with any additional files to achieve revision control. The revision control data are centralized in a dedicated folder, the repository, which can be either a local directory or a mountpoint to a directory located on an external system.
 

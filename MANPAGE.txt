@@ -58,6 +58,10 @@ SYNOPSIS
               Creates a new release by tagging the head revision with the con‐
               tent of the VERSION.txt file.
 
+       repo  INFO NAME
+
+              Display the specified information of the repository
+
        rev
 
               Display the head revision number
@@ -110,17 +114,18 @@ SYNOPSIS
               Assume 'Yes' when prompted for confirmation
 
 DESCRIPTION
-       arcv is a lightweight, easy-to-use revision control system which  keeps
-       untouched the user's original source files and folders.
+       arcv is a lightweight, safe, easy-to-use&learn revision control  system
+       which  leaves  the  user's original source file tree intact and ensures
+       revisions integrity.
 
-       Unless  some  traditional  well-known  revision control systems, 'arcv'
-       fully respects the user's source folder integrity and  does  not  'pol‐
+       Unless some traditional well-known  revision  control  systems,  'arcv'
+       fully  respects  the  user's source folder integrity and does not 'pol‐
        lute' it with any additional files to achieve revision control. The re‐
-       vision control data are centralized in a dedicated folder, the  reposi‐
+       vision  control data are centralized in a dedicated folder, the reposi‐
        tory, which can be either a local directory or a mountpoint to a direc‐
        tory located on an external system.
 
-       'arcv' only relies on standard system tools and there's  no  additional
+       'arcv'  only  relies on standard system tools and there's no additional
        command set overlay needed to learn and use, e.g., for adding or remov‐
        ing files. For instance, to exclude and remove a file from the revision
        control, it is enough to remove the file from the system and commit the
@@ -128,16 +133,16 @@ DESCRIPTION
        fore commit.
 
        The architecture of 'arcv' is readable and open, which enables users to
-       keep full control of the revisions and easily apply  common  corrective
-       actions  without pain. E.g. if the user only recognizes somewhen after‐
-       wards that a log message was incomplete or  incorrect,  it  can  simply
-       modify  the  CHANGE_LOG file containing the message, without needing to
+       keep  full  control of the revisions and easily apply common corrective
+       actions without pain. E.g. if the user only recognizes somewhen  after‐
+       wards  that  a  log  message was incomplete or incorrect, it can simply
+       modify the CHANGE_LOG file containing the message, without  needing  to
        execute multiple operations and the tooling skills coming along.
 
        Overall, the above few mentioned features enable 'arcv' to be of an ex‐
-       treme  simplicity  of use at the reach of anybody, even non-developers.
-       It enables an instant step-in and a drastic reduction of  the  learning
-       curve  and  daily  time  overhead generally required to manage revision
+       treme simplicity of use at the reach of anybody,  even  non-developers.
+       It  enables  an instant step-in and a drastic reduction of the learning
+       curve and daily time overhead generally  required  to  manage  revision
        control.
 
        AUDIENCE
@@ -148,7 +153,7 @@ DESCRIPTION
 
               - Early development stages of projects, prototyping
 
-              - Individual, well-targeted, independent  development  lines  or
+              -  Individual,  well-targeted,  independent development lines or
               branches, which can be easily integrated into the main branch or
               another revision control system without polluting or unnecessar‐
               ily complexifying his historical record.
@@ -157,14 +162,14 @@ DESCRIPTION
 
        PLATFORMS
 
-              Arcv  is  a  bash  script  primarly  developed  and tested under
-              Ubuntu.  Because it features only minimalistic dependencies,  it
-              is  deemed to run on most Linux systems and Cygwin-enhanced Win‐
+              Arcv is a  bash  script  primarly  developed  and  tested  under
+              Ubuntu.   Because it features only minimalistic dependencies, it
+              is deemed to run on most Linux systems and Cygwin-enhanced  Win‐
               dows systems.
 
        DOCUMENTATION
 
-              Please refer to the online page  https://slashetc.fr/en/develop‐
+              Please  refer to the online page https://slashetc.fr/en/develop‐
               ertoolsforlinux/arcv/arcv__documentation.html to access the full
               documentation:
 
@@ -176,8 +181,8 @@ DESCRIPTION
 
        SYSTEM DEPENDENCIES
 
-              Arcv automatically handles dependencies toward  external  system
-              packages,  i.e. it attempts to install all required system pack‐
+              Arcv  automatically  handles dependencies toward external system
+              packages, i.e. it attempts to install all required system  pack‐
               ages, e.g. meld or tar, when necessary.
 
 COMMAND DETAILS
@@ -193,36 +198,36 @@ COMMAND DETAILS
        co [REVISION | RELEASE TAG | FILENAME[:REVISION]]
 
               When used without argument, checks out all files of the head re‐
-              vision. Any file of the current source may  get  overwritten  or
-              removed.   Otherwise, checks out the specified revision, release
+              vision.  Any  file  of the current source may get overwritten or
+              removed.  Otherwise, checks out the specified revision,  release
               tag or file from head revision to the specified output folder.
 
        diff [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
 
-              Makes a diff with the specified revision using the  system  diff
+              Makes  a  diff with the specified revision using the system diff
               tool.  When no revision number is supplied, the head revision is
-              considered by default.  Returns 0  when  no  difference  is  de‐
+              considered  by  default.   Returns  0  when no difference is de‐
               tected, 1 otherwise.
 
        export [DIRECTORY]
 
               When used without argument, exports the head revision to the re‐
-              mote Git repo.  When the path to a folder is supplied  as  argu‐
+              mote  Git  repo.  When the path to a folder is supplied as argu‐
               ment, exports the content of that folder to the remote Git repo.
-              This latter usage is suitable e.g. to export the  clean  release
+              This  latter  usage is suitable e.g. to export the clean release
               version of the source file tree, built at another location.  The
               URL of the remote Git repo shall be given in GITHUB.txt
 
        git [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
 
               Makes a diff with the specified revision using git.  When no re‐
-              vision  number  is  supplied, the head revision is considered by
+              vision number is supplied, the head revision  is  considered  by
               default.
 
        hash [DIRECTORY]
 
-              Displays the hash signature of the head revision when  no  argu‐
-              ment  is  supplied.   Otherwise, computes the hash signature for
+              Displays  the  hash signature of the head revision when no argu‐
+              ment is supplied.  Otherwise, computes the  hash  signature  for
               the passed directory path
 
        list
@@ -231,24 +236,31 @@ COMMAND DETAILS
 
        log [FILENAME]
 
-              Without argument, shows the global commit history of the  source
-              folder.   Otherwise,  shows the commit history for the specified
-              file.  The global history is always shown from  most  recent  to
-              the  oldest in batches of 5.  The file-specific history is shown
-              from most recent to the oldest as a terminal  menu,  from  which
+              Without  argument, shows the global commit history of the source
+              folder.  Otherwise, shows the commit history for  the  specified
+              file.   The  global  history is always shown from most recent to
+              the oldest in batches of 5.  The file-specific history is  shown
+              from  most  recent  to the oldest as a terminal menu, from which
               the changes can be checked against head revision
 
        meld [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
 
-              Makes  a diff with the specified revision using meld tool.  When
-              no revision number is supplied, the head revision is  considered
+              Makes a diff with the specified revision using meld tool.   When
+              no  revision number is supplied, the head revision is considered
               by default.
 
        pub
 
               Creates a new release by tagging the head revision with the con‐
-              tent of the VERSION.txt file.  Then it prompts the user for  the
+              tent  of the VERSION.txt file.  Then it prompts the user for the
               next version and updates VERSION.txt accordingly.
+
+       repo INFO NAME
+
+              Displays the specified information of the repository.  Supported
+              values:
+
+              git-repo: show the path to the git folder
 
        rev
 
@@ -326,4 +338,4 @@ COPYRIGHT
        License terms written down in file LICENSE.txt Les termes de la licence
        sont détaillés dans le fichier LICENSE.txt
 
-Arcv 1.0.0                       juillet 2026                          ARCV(8)
+Arcv 1.0.1                         July 2026                           ARCV(8)

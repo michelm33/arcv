@@ -57,8 +57,8 @@ man_install: arcv.8
 	sudo install -g 0 -o 0 -m 0644 $< $(TARGET)
 	sudo gzip -f $(TARGET)/$<
 
-arcv.8: required_help2man FORCE
-	help2man -L en_EN@euro --no-info --section 8 --name "arcv is a lightweight, easy-to-use revision control system which keeps untouched the user's original source files and folders" --help-option="--man" --output=$@ ./arcv
+arcv.8: required_help2man FORCE    
+	export TZ="US/Pacific" && export LC_ALL="C.UTF-8" && export LANG="EN.US.UTF-8" && help2man -L en_EN@euro --no-info --section 8 --name "arcv is a lightweight, easy-to-use revision control system which keeps untouched the user's original source files and folders" --help-option="--man" --output=$@ ./arcv
 # --manual="System Administration Utilities"
 
 .PHONY: required_help2man
@@ -101,7 +101,7 @@ export:
 	@echo "REQUESTING TO EXPORT RELEASE TO GITHUB WITH ARCV. CTRL-C TO ABORT"
 	@echo " IF ABORTED, TYPE 'make release_export' or 'av export' TO RESTART"
 	@echo 
-	@av export $(VERSION_DEB)
+	@av export $(VERS_REL_DIR)
 
 #--filter="exclude sumo__detect.sh" 
 .PHONY: build_release
@@ -196,6 +196,8 @@ update_web_download_page:
 	@echo "UPDATING DOWNLOAD PAGE"
 	@echo 
 	@tools/update-web-download-page.sh "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv_download.adoc" "$(PRODUCT)" "$(VERSION_DEB)" "$(VERSION_DEB_FOR_ZIP)"  && echo && echo '>>>>>>>>>>>>>>> SUCCESS <<<<<<<<<<<<<<<<<<<<' ||  echo '!!!!!!!!!!!!!!!! FAIL !!!!!!!!!!!!!!!!'
+	@tools/update-web-download-page.sh "./README.asciidoc" "$(PRODUCT)" "$(VERSION_DEB)" "$(VERSION_DEB_FOR_ZIP)"  && echo && echo '>>>>>>>>>>>>>>> SUCCESS <<<<<<<<<<<<<<<<<<<<' ||  echo '!!!!!!!!!!!!!!!! FAIL !!!!!!!!!!!!!!!!'
+	@if which arcv >/dev/null 2>/dev/null; then av diff >/dev/null ; if [ $$? -eq 0 ] ; then av -y co README.asciidoc >/dev/null; fi ; fi
 	@echo 
 
 .PHONY: update_website_ftp

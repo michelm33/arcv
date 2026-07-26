@@ -16,6 +16,8 @@ LICENSE.txt /usr/bin/arcv
 Makefile /usr/bin/arcv
 MANPAGE.txt /usr/bin/arcv
 pack /usr/bin/arcv
+README.asciidoc /usr/bin/arcv
+README-version-upgrade.txt /usr/bin/arcv
 REVISION.txt /usr/bin/arcv
 syncfull.yml /usr/bin/arcv
 template-arcv.yml /usr/bin/arcv

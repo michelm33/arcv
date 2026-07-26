@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv
-# Release file date: 2026-07-23 13:39
-# App version: 1.0.0
-# App source revision: 187
-# App source signature: 9587ec243d426d1f1f5fa7cc56c40357fe0bc6534e238c84dfcee4dfd8b54a87
-# Source file last modification: 2026-07-23 13:35:18.620311248 +0200
+# Release file date: 2026-07-26 13:11
+# App version: 1.0.1
+# App source revision: 207
+# App source signature: 746cd55fc524cfc06dc7647232c2f81c44d6b2cf6125a49ea4f119de443df7b2
+# Source file last modification: 2026-07-26 11:33:33.552211498 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -38,6 +38,7 @@
 declare -A ARCV__VARS
 Arcv__sourcedirname="${BASH_SOURCE[0]%/*}" # "$(dirname ${BASH_SOURCE[0]})"
 ARCV__VARS["MY_DIR"]="$(readlink -f "${Arcv__sourcedirname}")" # $(dirname ${BASH_SOURCE[0]}))
+ARCV__VARS["MYDIR"]="${ARCV__VARS["MY_DIR"]=}" # MY_DIR is obsolete with latest genapp, use MYDIR
 ARCV__VARS["backupsrc"]=""
 ARCV__VARS["explicit_backupsrc"]=""
 ARCV__VARS["backupsrcBasename"]=""
@@ -93,6 +94,8 @@ ARCV__VARS["log_message"]=""
 ARCV__VARS["silent"]=false
 ARCV__VARS["force-default-entry"]=false
 ARCV__VARS["excluded_file_patterns"]=""
+ARCV__VARS["repo_info"]=false
+ARCV__VARS["repo_infoname"]=""
 
 if [[ ! -v __SHELL_API_CORE_LOADED__ ]]; then
     if [ -v ENV_SHELL_API ] ; then
@@ -1156,7 +1159,7 @@ EOF
     # Get git repo path inside the archive folder
     _log_dbg "${ARCV__VARS["backupsrcBasename"]}"
     local gitrepo=""
-    read gitrepo < <(echo "${ARCV__VARS["backupapptarget"]}/git")
+    Arcv__getInfo "git-repo" gitrepo
 
     local prodname
     Arcv__getProductName  prodname
@@ -1503,8 +1506,8 @@ EOF
 Arcv__cleanup()
 {
     _log_dbg "cleanup callback called"
-    File__deleteAllTempDirs
-    File__deleteAllTempFiles
+    File__deleteAllTempItems
+    
     if [ $# -eq 1 ] && [ $1 -eq 0 ] ; then 
         _log_dbg "Normal exit (0)"
     else
@@ -2115,7 +2118,11 @@ EOF
         while IFS='' read -r droppedFile ; do
             droppedFile="${tdir}/${droppedFile:2}"
             #_log_dbg "deleting ${droppedFile}" >&2
-            if [ -f "$droppedFile" ] ; then rm "${droppedFile}" ; fi
+            if [ -f "$droppedFile" ] ; then 
+                rm -f "${droppedFile}"
+            elif [ -d "$droppedFile" ] ; then 
+                rm -rf "${droppedFile}"
+            fi
         done < <(cat "${excludeDroppedFilesList}")
 
         # Cleanup temp file
@@ -2375,6 +2382,40 @@ Arcv__setupEXCLUDE()
 
 }
 
+Arcv__getInfo()
+{
+    local __inInfoName="$1"
+    local -n __outInfoValue=$2
+    Str__toLower __inInfoName
+    case "${__inInfoName}" in
+            #"github") 
+            #    __outInfoValue="${ARCV__VARS["backupsrc"]}/GITHUB.txt"
+            #    ;;
+            "git-repo") 
+                # Git repo path inside the archive folder
+                local __gitrepo=""
+                read __gitrepo < <(printf "%s" "${ARCV__VARS["backupapptarget"]}/git")
+                __outInfoValue="${__gitrepo}"
+                ;;
+            *)                 
+                return 1 
+                ;;
+    esac        
+    return 0
+}
+
+Arcv__displayInfo()
+{
+    local __infoValue=""
+    if Arcv__getInfo "$1" __infoValue ; then
+        printf "%s\n" "${__infoValue}" # use prinfs because echo may interpret special escape char
+        return 0
+    else
+        _log_err "Invalid information '$1' requested"
+        return 1
+    fi
+}
+
 Arcv__loadDep()
 {
     if ! Args__checkCount ${FUNCNAME[0]} 1 "$#" "Usage: <dependency name>"; then return 1; fi
@@ -2563,7 +2604,7 @@ EOF
             repoNewlyCreated=true
             arcRootResolved=true
         else
-            if ${ARCV__VARS["rev"]} || ${ARCV__VARS["hash"]} ; then 
+            if ${ARCV__VARS["rev"]} || ${ARCV__VARS["hash"]} ||  ${ARCV__VARS["repo_info"]} ; then 
                 # Asking rev number whilst root couldn't be determined
                 # This is an error case
                 _exit -55 "Failed to get revision. Folder may not be under revision control or the repository git corrupted."
@@ -2642,7 +2683,7 @@ EOF
             fi
         fi
 
-        # In this 'if' cas,e the arcVersion wil point to the next virtual version to create the new version. 
+        # In this 'if' case the arcVersion wil point to the next virtual version to create the new version. 
         # For "rev" request, it will be corrected by -1, it is handled here
         # to allow the guess out dynamically current revision reusing the 'else' block
         # if necessary
@@ -2761,7 +2802,7 @@ EOF
     if ! ${ARCV__VARS["silent"]} && ! ${ARCV__VARS["diff"]} && ! ${ARCV__VARS["meld"]} ; then
     if ${ARCV__VARS["checkin"]} ; then
         # Announcement
-        if (! ${ARCV__VARS["rev"]} && ! ${ARCV__VARS["hash"]}) || ${ARCV__VARS["verbose"]} ; then
+        if (! ${ARCV__VARS["rev"]} && ! ${ARCV__VARS["hash"]} && ! ${ARCV__VARS["repo_info"]} ) || ${ARCV__VARS["verbose"]} ; then
             _log_high "SRC: ${ARCV__VARS["backupsrc"]}"
             local lastVerMsg;
             if [ $arcVersion -eq 0 ] ; then
@@ -2923,6 +2964,8 @@ $((${maj}+1)).0.0"
     elif ${ARCV__VARS["diff"]} ; then
         Arcv__diff "diff" $arcVersion "${diffRevFolder}" "${diffRevFolderIsTmp}"
         _exit $? ""
+    elif ${ARCV__VARS["repo_info"]} ; then
+        Arcv__displayInfo "${ARCV__VARS["repo_infoname"]}"
     elif ${ARCV__VARS["rev"]} ; then
         if ${ARCV__VARS["verbose"]} ; then
             _log ""

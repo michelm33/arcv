@@ -8,6 +8,6 @@ Build-Depends: debhelper-compat (= 13)
 Package: arcv
 Homepage: https://github.com/michelm33/arcv
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, shell-api (=1.1-0)
+Depends: ${shlibs:Depends}, ${misc:Depends}, shell-api (=1.1-1)
 Description: Arcv revision control tool
  Arcv revision control tool

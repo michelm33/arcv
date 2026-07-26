@@ -23,6 +23,10 @@ copy-args-intern: "-a -X --info=NONE"
 
 # File patterns for files to be excluded from revision control
 exclude: 
+  - "*.nfs*" 
+  - "*.swp*" 
+  - "*.nfs" 
+  - "*.swp" 
   - ".nfs*" 
   - ".swp*" 
   - "RCS" 
