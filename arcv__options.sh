@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__options.sh
-# Release file date: 2026-07-26 13:11
-# App version: 1.0.1
-# App source revision: 207
-# App source signature: 746cd55fc524cfc06dc7647232c2f81c44d6b2cf6125a49ea4f119de443df7b2
-# Source file last modification: 2026-07-26 11:53:37.583123443 +0200
+# Release file date: 2026-08-13 12:41
+# App version: 1.1.0
+# App source revision: 232
+# App source signature: b5ab64109e46cf5d95f43c697890c321068f34c5fef2f21da1d2e0f2a58782e9
+# Source file last modification: 2026-08-12 02:02:53.514074333 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -43,6 +43,7 @@ declare -A ARCV__OPTION_LIST_ARGS_TYPE # Give the type of the argument(s)
 declare -A ARCV__OPTION_LIST_VALS # Executed code when processing an expected arg
 declare -A ARCV__OPTION_LIST_ACTI # Executed code when option is detected
 declare -A ARCV__OPTION_LIST_INTERN # Tells whether the option is not intended for end-users or only for advanced ones
+declare -A ARCV__OPTION_LIST_ENUM # If the argument is an enum value, this gives all allowed values 
 
 # arg 1: 1=no value expected, 0 value expected
 
@@ -399,6 +400,18 @@ ARCV__OPTION_LIST_VALS["log"]='
 ARCV__VARS["revisionlog_file"]="${__myarg}"
 '
 
+
+ARCV__OPTION_LIST_SDESC["rel"]="Show the release log messages from most recent to the oldest"
+ARCV__OPTION_LIST_DESC["rel"]="
+Shows the release log messages from most recent to the oldest
+"   
+ARCV__OPTION_LIST_ARGS["rel"]="1"      # 0:mandatory value, 1:no value, 2:optional value
+ARCV__OPTION_LIST_ACTI["rel"]='
+ARCV__VARS["checkin"]=false
+ARCV__VARS["releaselog"]=true
+'          # Action to be executed when option is read
+
+
 ARCV__OPTION_LIST_SDESC["-f"]='Configure the arcv operational config filename (permament)'
 
 ARCV__OPTION_LIST_DESC["-f"]='
@@ -477,6 +490,18 @@ ARCV__OPTION_LIST_ACTI["--silent"]='ARCV__VARS["silent"]=true'
 
 
 
+ARCV__OPTION_LIST_SDESC["destroy"]="Put folder out of revision control and delete all related file from repositiory"
+ARCV__OPTION_LIST_DESC["destroy"]="
+Put folder out of revision control and delete all related file from repositiory
+"
+ARCV__OPTION_LIST_ARGS["destroy"]="1"
+ARCV__OPTION_LIST_ACTI["destroy"]='
+ARCV__VARS["destroy-repo"]=true
+ARCV__VARS["checkin"]=false
+'
+
+
+
 ARCV__OPTION_LIST_SDESC["--source"]='Source directory to checkout from the repository'
 
 ARCV__OPTION_LIST_DESC["--source"]='
@@ -514,14 +539,17 @@ ARCV__OPTION_LIST_DESC["repo"]='
 Displays the specified information of the repository. Supported values:
   git-repo: show the path to the git folder
 '
-ARCV__OPTION_LIST_ARGS["repo"]="0" 
-ARCV__OPTION_LIST_ARGS_TYPE["repo"]="INFO NAME"
-ARCV__OPTION_LIST_ACTI["repo"]=""
-ARCV__OPTION_LIST_VALS["repo"]='
+ARCV__OPTION_LIST_ARGS["repo"]="2" 
+ARCV__OPTION_LIST_ARGS_TYPE["repo"]="INFONAME"
+ARCV__OPTION_LIST_ACTI["repo"]='
 ARCV__VARS["repo_info"]=true
+ARCV__VARS["checkin"]=false
+ARCV__VARS["repo_infoname"]=""
+'
+ARCV__OPTION_LIST_VALS["repo"]='
 ARCV__VARS["repo_infoname"]="${__myarg}"
 '
-
+ARCV__OPTION_LIST_ENUM["repo"]='releases exclude-file exclusions src-dir rev-dir head-dir git-repo size'
 
 
 # implement that later

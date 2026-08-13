@@ -23,6 +23,11 @@ SYNOPSIS
               ments)  or  checkout  resp. the revision, release tag, file from
               head revision to the specified output folder
 
+       destroy
+
+              Put folder out of revision control and delete all  related  file
+              from repositiory
+
        diff  [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
 
               Make a diff with the specified revision using system diff tool
@@ -37,7 +42,7 @@ SYNOPSIS
 
        hash  [DIRECTORY]
 
-              Display the hash signature for the head revision or  the  speci‐
+              Display  the  hash signature for the head revision or the speci‐
               fied folder
 
        list
@@ -46,7 +51,7 @@ SYNOPSIS
 
        log  [FILENAME]
 
-              Show  the  revision log messages from most recent to the oldest,
+              Show the revision log messages from most recent to  the  oldest,
               for the whole source or only the specified file.
 
        meld  [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
@@ -58,7 +63,11 @@ SYNOPSIS
               Creates a new release by tagging the head revision with the con‐
               tent of the VERSION.txt file.
 
-       repo  INFO NAME
+       rel
+
+              Show the release log messages from most recent to the oldest
+
+       repo  [INFONAME]
 
               Display the specified information of the repository
 
@@ -68,7 +77,7 @@ SYNOPSIS
 
        tarball  [REVISION | head]
 
-              Create  a tarball for the current source folder or the specified
+              Create a tarball for the current source folder or the  specified
               revision
 
        OPTIONS:
@@ -114,18 +123,18 @@ SYNOPSIS
               Assume 'Yes' when prompted for confirmation
 
 DESCRIPTION
-       arcv is a lightweight, safe, easy-to-use&learn revision control  system
-       which  leaves  the  user's original source file tree intact and ensures
+       arcv  is a lightweight, safe, easy-to-use&learn revision control system
+       which leaves the user's original source file tree  intact  and  ensures
        revisions integrity.
 
-       Unless some traditional well-known  revision  control  systems,  'arcv'
-       fully  respects  the  user's source folder integrity and does not 'pol‐
+       Unless  some  traditional  well-known  revision control systems, 'arcv'
+       fully respects the user's source folder integrity and  does  not  'pol‐
        lute' it with any additional files to achieve revision control. The re‐
-       vision  control data are centralized in a dedicated folder, the reposi‐
+       vision control data are centralized in a dedicated folder, the  reposi‐
        tory, which can be either a local directory or a mountpoint to a direc‐
        tory located on an external system.
 
-       'arcv'  only  relies on standard system tools and there's no additional
+       'arcv' only relies on standard system tools and there's  no  additional
        command set overlay needed to learn and use, e.g., for adding or remov‐
        ing files. For instance, to exclude and remove a file from the revision
        control, it is enough to remove the file from the system and commit the
@@ -133,16 +142,16 @@ DESCRIPTION
        fore commit.
 
        The architecture of 'arcv' is readable and open, which enables users to
-       keep  full  control of the revisions and easily apply common corrective
-       actions without pain. E.g. if the user only recognizes somewhen  after‐
-       wards  that  a  log  message was incomplete or incorrect, it can simply
-       modify the CHANGE_LOG file containing the message, without  needing  to
+       keep full control of the revisions and easily apply  common  corrective
+       actions  without pain. E.g. if the user only recognizes somewhen after‐
+       wards that a log message was incomplete or  incorrect,  it  can  simply
+       modify  the  CHANGE_LOG file containing the message, without needing to
        execute multiple operations and the tooling skills coming along.
 
        Overall, the above few mentioned features enable 'arcv' to be of an ex‐
-       treme simplicity of use at the reach of anybody,  even  non-developers.
-       It  enables  an instant step-in and a drastic reduction of the learning
-       curve and daily time overhead generally  required  to  manage  revision
+       treme  simplicity  of use at the reach of anybody, even non-developers.
+       It enables an instant step-in and a drastic reduction of  the  learning
+       curve  and  daily  time  overhead generally required to manage revision
        control.
 
        AUDIENCE
@@ -153,7 +162,7 @@ DESCRIPTION
 
               - Early development stages of projects, prototyping
 
-              -  Individual,  well-targeted,  independent development lines or
+              - Individual, well-targeted, independent  development  lines  or
               branches, which can be easily integrated into the main branch or
               another revision control system without polluting or unnecessar‐
               ily complexifying his historical record.
@@ -162,14 +171,14 @@ DESCRIPTION
 
        PLATFORMS
 
-              Arcv is a  bash  script  primarly  developed  and  tested  under
-              Ubuntu.   Because it features only minimalistic dependencies, it
-              is deemed to run on most Linux systems and Cygwin-enhanced  Win‐
+              Arcv  is  a  bash  script  primarly  developed  and tested under
+              Ubuntu.  Because it features only minimalistic dependencies,  it
+              is  deemed to run on most Linux systems and Cygwin-enhanced Win‐
               dows systems.
 
        DOCUMENTATION
 
-              Please  refer to the online page https://slashetc.fr/en/develop‐
+              Please refer to the online page  https://slashetc.fr/en/develop‐
               ertoolsforlinux/arcv/arcv__documentation.html to access the full
               documentation:
 
@@ -181,8 +190,8 @@ DESCRIPTION
 
        SYSTEM DEPENDENCIES
 
-              Arcv  automatically  handles dependencies toward external system
-              packages, i.e. it attempts to install all required system  pack‐
+              Arcv automatically handles dependencies toward  external  system
+              packages,  i.e. it attempts to install all required system pack‐
               ages, e.g. meld or tar, when necessary.
 
 COMMAND DETAILS
@@ -198,9 +207,14 @@ COMMAND DETAILS
        co [REVISION | RELEASE TAG | FILENAME[:REVISION]]
 
               When used without argument, checks out all files of the head re‐
-              vision.  Any  file  of the current source may get overwritten or
-              removed.  Otherwise, checks out the specified revision,  release
+              vision. Any file of the current source may  get  overwritten  or
+              removed.   Otherwise, checks out the specified revision, release
               tag or file from head revision to the specified output folder.
+
+       destroy
+
+              Put folder out of revision control and delete all  related  file
+              from repositiory
 
        diff [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
 
@@ -255,7 +269,11 @@ COMMAND DETAILS
               tent  of the VERSION.txt file.  Then it prompts the user for the
               next version and updates VERSION.txt accordingly.
 
-       repo INFO NAME
+       rel
+
+              Shows the release log messages from most recent to the oldest
+
+       repo [INFONAME]
 
               Displays the specified information of the repository.  Supported
               values:
@@ -338,4 +356,4 @@ COPYRIGHT
        License terms written down in file LICENSE.txt Les termes de la licence
        sont détaillés dans le fichier LICENSE.txt
 
-Arcv 1.0.1                         July 2026                           ARCV(8)
+Arcv 1.1.0                        August 2026                          ARCV(8)

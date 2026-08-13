@@ -1,9 +1,35 @@
-* Hot fix release
-  - New features: added "repo" command to get information on repository. Currently, only "av repo git-repo" is available
-  - Improvs: exclusion filters for temp nfs and swap files
-  - Fixes: 
-    * HOT: removed folders were checked out (critical)
-    * Makefile 'export target
-    * There could be words in local language appearing in the generated man page (month at end of page)
+1.1.0
+  * New features:
+    - 'av rel' command: to check release history, including interactive menu to diff with head or previous release
+    - 'av destroy' command: Take folder out of revision control and delete all related file from repositiory
+    - 'av repo [infoname]': provides the following information, resp for 'infoname':
+        releases : show the release history message log. Same as 'av rel', except there's no interactive menu
+        exclude-file: file path where are stored the exclusion file patterns in the repositiory 
+        exclusions : list of exclusion file patterns for the source folder as stored in the repository
+        src-dir : root directory of the source inside the repositoryq
+        rev-dir : head revision directory of the source inside the repository
+        head-dir : full head file tree inside the repository
+        git-repo size: Size occupied by the source folder inside the repository
+        Special values:
+          (none): show all information listed below
+          (any string not maching the above ones) : seeks a matching substring in the above info name and shows it when so.
+            E.g. 'av excl' will show info for 'exclude-file' and 'exclusions'
+            E.g. 'av dir' will show all info which name contains 'dir': src-dir, rev-dir etc.
+    - 'av -X' : exclusion file patterns specified with '-W' can now be defined not only at repository creation
+  * improvs:
+    - revision history log now restricted in width with alternate colors for each entry
+    - enabling using different versions of shell-api for other tools (like sumo): changed dependency handling of shell-api for arcv install: now arcv looks for a local shell-api dir which is a symbolic to a folder thereof whose name must hold the exact expected version
+  * Bug fixes:
+    - fixed 'av repo' in non-revisioned folder asking to check in new folder
+    - display error: depending on diff tool version, modified files could not be listed at all at check-in
+1.0.1
+  * Hot fix release
+    - New features: added "repo" command to get information on repository. Currently, only "av repo git-repo" is available
+    - Improvs: exclusion filters for temp nfs and swap files
+    - Fixes: 
+      * HOT: removed folders were checked out (critical)
+      * Makefile 'export target
+      * There could be words in local language appearing in the generated man page (month at end of page)
 
-* First official, public release
+1.0.0
+  * First official, public release
