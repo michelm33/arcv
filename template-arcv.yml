@@ -64,9 +64,34 @@ exclude:
   - ".hg" 
   - ".bzr"
 
+# When set to yes, enables to only regard the actual access permissions, not 
+# trailing special flags like '+' (ACL)
+ignore-special-perm-bits: no
+
 # The git diff arguments if git is used for diffing
 git-diff-args: "-w --word-diff=plain --word-diff-regex=."
 #--out-format=%f 
+
+# The diff arguments when diff is used for diffing
+diff-diff-args: "--no-dereference -r --color=always -u" # --left-column --label "first file" --label "second file"
+#diff-diff-args: "--no-dereference -r -l --color=always -y --suppress-common-lines" # --left-column
+
+# The diff arguments when diff is used for diffing in plain mode --plain option
+plain-diff-args: "--no-dereference -r"
+
+# diff-popup-gnometerminal-args is used when meld is not available (e.g. no desktop)
+# and the diff is shown on popup window, using gnome terminal (if available)
+diff-popup-gnometerminal-args: --geometry=160x50+0+0 --
+
+# diff-popup-xterm-args is used when meld is not available (e.g. no desktop)
+# and the diff is shown on popup window, using xterm when gnome terminal is not available
+diff-popup-xterm-args: -fa 'Monospace' -fs 12 +dc -geometry 200x50+0+0 -sb -e
+
+# Paging command to use for the default output of some commands like 'diff' 'log' 'rel'
+paging: " | less -R"
+
+# Default revision window when revision history and file history log is requested when neither --from nor --to are explicitly specified
+revision-history-window: 100
 
 # User name when exporting to GitHub
 user-name: Your Name

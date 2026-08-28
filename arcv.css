@@ -1,0 +1,29 @@
+/*
+    Release history table
+*/
+.css-arcv-rel-table td {
+    padding: 0 0 0 0.5em;
+}
+
+/*
+    Column 1 of revision history table
+*/
+.css-arcv-hist-col1 {
+    word-wrap: normal;
+    word-break: normal;
+    text-wrap: nowrap;
+}
+
+/*
+    Revision history table
+*/
+.css-arcv-hist-table td {
+    padding: 0 0 0 0.5em;
+}
+
+
+/*
+css-arcv-rel-hist-colX
+*/
+
+

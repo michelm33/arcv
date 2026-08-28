@@ -1,5 +1,69 @@
+1.2.0
+
+  * New features
+
+    - Random revision tagging: added command 'av pub TAG:REVISION' to create tags on a random revision
+    - --from and --to options to select only a range of revision for the 'av log' command (history and files)
+    - '-l' option for carrying out a dry check-in listing only updated files (like a git status)
+    - Addons in changed file menu at check-in
+        > 'diff' checking now also available on <ENTER> via menu at check-in when meld is not available:
+           a terminal window is popping up showing the differences with git or diff. The popup is auto closed when then exiting menu. 
+           Smart diff with context and colors
+        > 'diff' can also always be chosen explicitly instead of meld using 'd' key in menu (line-by-line diff)
+        > '<r>estore' menu option, to checkout and restore a changed file
+        > '<R>eset' menu option to reset current image to the head (like a git reset --hard)
+    - In release list menu, added menu action 'w' to view matching log messages
+    - --fmt=plain option for log and diff:
+        > Enables to display history without text formatting 
+        > When diffing with the 'diff' tool, the configuration param 'plain-diff-args' is used instead of the 'diff-diff-args' to enable initial diff behavior in arcv (without popup , nor context and colors)
+    - Via configuration:
+       > ignore-special-perm-bits: enables to ignore specific permission flag like ACL for permission-only changes
+    - Extended the list of information can be displayed with 'av repo':
+          > releases : list of releases
+          > latest-release-tag: latest release tag
+          > latest-release-rev : revision number of latest release
+          > exclude-file: exclusion file path in the repository
+          > exclusions: list of patterns of excluded files
+          > src-dir: root directory path for the source in the repository
+          > rev-dir: directory path of current revision in the repository
+          > rev-hashfilepath: : directory path of the hash file of the current revision in the repository
+          > rev-hashfilename: hash file basename 
+          > head-dir: head directory path in the repository, which contains all information about the head
+          > head-image-dir: directory path of the full head image 
+          > git-repo: directory path of the git repo in the repository, used to export source images
+          > size: total size of the data occupied for the source in the repository
+    - --fix to recompute to recompute hash for current image
+
+  * Improvs
+
+    - Improved diff experience when using diff:
+        > more git alike, using colors and context lines
+        > configurable diff parameters:
+          diff-diff-args
+          diff-popup-xterm-args
+    - Ergonomics of changed filed menu for multipages (scrollbar mime, page/total) 
+    - At check-in and if there are changes, the screen is cleared prior to showing the menu
+    - Explicit handling of any removed file which is a symlink
+    - Enhanced SHA256 computing for a random folder by regarding applicable exclusions by detecting whether the folder relates to a known source in the repository basing on the following parameters in order of priority: explicit source specified, revision or release tag checkout detected from name (folder basename is <source>-<something> and 'source' is known), raw input folder basename.
+    - Improved code modularity    
+    - Consistent implementations of 'log' command for file history and source history: with -y, shows a menu where diffs can be triggered. Without -y the full history is progressively displayed. 
+
+  * Fixes
+
+    - Permission-only changes are now properly handled by the revision control system. Permission changes are now subject to a specific handling which enables to revision any file or dir which only permissions changed (and not its content)
+    - change diff arguments order when checking current source with anything else so that addons appears as '+' and deletion as '-' with diff tool
+    - Log commands can now be applied to a file by specifying its name in the current dir anywhere in the file tree without having to specify the relative path to the root source folder    
+    - Diffs launched in backgound from the changed file menu at check-in are not blocking the menu anymore. Diff processes are auto-terminated at arcv exit (except meld)
+    - Several flaws in SHA256 computing algorithm:
+        > The hash computation algorithm is now much more reliable across different systems, in particular it does not not rely anymore on any output order or sorting of ls
+        > as legacy the function forces US/Pacific timezone for the internal 'ls' , but initial timezone was not restored properly. Even it does not affect the fingerprint itself, it affected the calling app
+    - Now properly handling display of multi-page change menu at check-in
+    - Changed files can now be diffed through the menu at check-in when there are more than 255 files
+
 1.1.0
-  * New features:
+
+  * New features
+
     - 'av rel' command: to check release history, including interactive menu to diff with head or previous release
     - 'av destroy' command: Take folder out of revision control and delete all related file from repositiory
     - 'av repo [infoname]': provides the following information, resp for 'infoname':
@@ -16,14 +80,21 @@
             E.g. 'av excl' will show info for 'exclude-file' and 'exclusions'
             E.g. 'av dir' will show all info which name contains 'dir': src-dir, rev-dir etc.
     - 'av -X' : exclusion file patterns specified with '-W' can now be defined not only at repository creation
-  * improvs:
+
+  * Improvs
+
     - revision history log now restricted in width with alternate colors for each entry
     - enabling using different versions of shell-api for other tools (like sumo): changed dependency handling of shell-api for arcv install: now arcv looks for a local shell-api dir which is a symbolic to a folder thereof whose name must hold the exact expected version
-  * Bug fixes:
+
+  * Bug fixes
+
     - fixed 'av repo' in non-revisioned folder asking to check in new folder
     - display error: depending on diff tool version, modified files could not be listed at all at check-in
+
 1.0.1
+
   * Hot fix release
+
     - New features: added "repo" command to get information on repository. Currently, only "av repo git-repo" is available
     - Improvs: exclusion filters for temp nfs and swap files
     - Fixes: 
@@ -32,4 +103,5 @@
       * There could be words in local language appearing in the generated man page (month at end of page)
 
 1.0.0
+
   * First official, public release

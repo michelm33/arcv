@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv
-# Release file date: 2026-08-13 12:41
-# App version: 1.1.0
-# App source revision: 232
-# App source signature: b5ab64109e46cf5d95f43c697890c321068f34c5fef2f21da1d2e0f2a58782e9
-# Source file last modification: 2026-08-13 11:36:27.832116361 +0200
+# Release file date: 2026-08-28 00:37
+# App version: 1.2.0
+# App source revision: 299
+# App source signature: 10b23adcc37dc4efe21cfd1444afadadbd879990635ca589d3b37377cfb56b8a
+# Source file last modification: 2026-08-28 00:34:31.406994287 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -36,97 +36,29 @@
 ###############################################################################
 
 declare -A ARCV__VARS
-Arcv__sourcedirname="${BASH_SOURCE[0]%/*}"
-ARCV__VARS["MY_DIR"]="$(readlink -f "${Arcv__sourcedirname}")"
+ARCV__SOURCEDIRNAME="${BASH_SOURCE[0]%/*}"
+ARCV__VARS["MY_DIR"]="$(readlink -f "${ARCV__SOURCEDIRNAME}")"
 ARCV__VARS["MYDIR"]="${ARCV__VARS["MY_DIR"]}" # MY_DIR is obsolete with latest genapp, use MYDIR
-ARCV__VARS["backupsrc"]=""
-ARCV__VARS["explicit_backupsrc"]=""
-ARCV__VARS["backupsrcBasename"]=""
-ARCV__VARS["backuptarget"]="$HOME/Archive"
-ARCV__VARS["backupapptarget"]="$HOME/Archive"           # Example Archive/sumo/
-ARCV__VARS["backupappversiontarget"]="$HOME/Archive"    # Example Archive/sumo/sumo.archive/
-
-ARCV__VARS["backupapptargetrootfile"]=""
-ARCV__VARS["backupapptargetexcludefile"]=""
-ARCV__VARS["headversion"]=""                            # Points to the head revision folder
-ARCV__VARS["headrev"]=""                                # Gives the revision number of the head
-ARCV__VARS["droppedsrc"]=""
-
-ARCV__VARS["copy"]="rsync"
-ARCV__VARS["copy_opt"]="-a -X --info=NAME1 --out-format=%n"
-ARCV__VARS["copy_opt_intern"]="-a -X"
-excludedFiles=()
-ARCV__VARS["diff"]=false
-ARCV__VARS["diff_rev"]="current"
-ARCV__VARS["file_rev"]=""
-ARCV__VARS["2nd_diff_rev"]=""
-ARCV__VARS["rev"]=false
-ARCV__VARS["list"]=false
-ARCV__VARS["hash"]=false
-ARCV__VARS["hash_folder"]=""
-ARCV__VARS["meld"]=false
-ARCV__VARS["git"]=false
-ARCV__VARS["tarball"]=false
-ARCV__VARS["verbose"]=false
-ARCV__VARS["checkout"]=""
-ARCV__VARS["checkout_folder"]=""
-ARCV__VARS["checkout_folder_original"]=""
-ARCV__VARS["checkin"]=true
-ARCV__VARS["branch"]=""
-ARCV__VARS["branch-root"]=""
-ARCV__VARS["branch-root-rev"]=""
-ARCV__VARS["publish"]=false
-ARCV__VARS["checkformodif"]=false
-ARCV__VARS["export"]=false
-ARCV__VARS["exp_folder"]=""
-ARCV__VARS["exp_rev"]=""
-ARCV__VARS["mountaccess"]=false
-
-ARCV__VARS["storageViaNfs"]=""
-ARCV__VARS["storage"]=""
-ARCV__VARS["localHostName"]=""
-ARCV__VARS["localHostMAC"]=""
-
-ARCV__VARS["revisionlog"]=false
-ARCV__VARS["revisionlog_file"]=""
-ARCV__VARS["releaselog"]=false
-ARCV__VARS["subproc"]=false
-ARCV__VARS["log_message"]=""
-ARCV__VARS["silent"]=false
-ARCV__VARS["force-default-entry"]=false
-ARCV__VARS["excluded_file_patterns"]=""
-ARCV__VARS["repo_info"]=false
-ARCV__VARS["repo_infoname"]=""
-ARCV__VARS["destroy-repo"]=false
 
 source "${ARCV__VARS["MY_DIR"]}/shell-api/shell-api-core.sh" "Arcv"
-
 eval $_loadm<<<'shell-api-yaml'
 eval $_loadm<<<'shell-api-net'
 eval $_loadm<<<'shell-api-sys'
 eval $_loadm<<<'shell-api-packing'
-#eval $_loadm<<<'shell-api-selftest'
+eval $_loada<<<'arcv__vars.sh'
+eval $_loada<<<'arcv__options.sh'
+eval $_loada<<<'arcv__help.sh'
+#eval $_loada<<<'arcv__debug.sh'
 
-source "${ARCV__VARS["MY_DIR"]}/arcv__options.sh" 
-source "${ARCV__VARS["MY_DIR"]}/arcv__help.sh" 
-
-#testGrepApi "Time zone" false
-#testGrepApi "time" false
-#time testPerfGrepApi true
-#time testPerfGrepApi false
-#testGetField
-#testGrepAndGetField "Time zone" 0
-#testGrepAndGetField "Time zone" 1
-#Date__getTimezone outTimezone
-#_log_vars outTimezone
-#exit 0
+Arcv__threadPool=()
 
 #__LOG_DEBUG__=0
+
 Arcv__getDefaultConfigFile()
 {
-        local -n out_ConfileFilePath=$1
-        out_ConfileFilePath="${ARCV__VARS["MY_DIR"]}/arcv.yml"
-        return 0
+    local -n out_ConfileFilePath=$1
+    out_ConfileFilePath="${ARCV__VARS["MY_DIR"]}/arcv.yml"
+    return 0
 }
 
 Arcv__setBackupSrc()
@@ -200,10 +132,10 @@ EOF
 Arcv__updateCurrentTargetSHA256()
 {
     local __inSHA256CheckumTarget="$1"
-    local shafullpath_srcItemsEscaped
-    Arcv__getEscapedSrcBasename shafullpath_srcItemsEscaped
-    #_log_vars shafullpath_srcItemsEscaped __inSHA256CheckumTarget
-    echo "${__inSHA256CheckumTarget}" > "${ARCV__VARS["backupappversiontarget"]}/._arcv_sha256_${shafullpath_srcItemsEscaped}"
+    local _hashFilename
+    Arcv__getInfoHashFilename _hashFilename
+
+    echo "${__inSHA256CheckumTarget}" > "${ARCV__VARS["backupappversiontarget"]}/${_hashFilename}"
 }
 
 :<<'EOF'
@@ -317,9 +249,10 @@ Arcv__initiateRevision()
 
     # Compute the SHA256 for the current source and store it
     local sha256="0"
+    local sha256Data=""
     local lastSha256="0"
     local res=1
-    Arcv__compAndCheckSourceSHA256 "" sha256 lastSha256
+    Arcv__compAndCheckSourceSHA256 "" sha256 lastSha256 sha256Data
     #_log_vars sha256
 
     local excludeFilesCmd=""
@@ -357,6 +290,9 @@ Arcv__completeLsIgnorePatternsFromRepoExcludeFile()
         #DEBUG
         #_log_vars __inExcludeFilesTmp
         #echo "Content of exclude file $(cat "${__inExcludeFilesTmp}")"
+    
+    # else  Do not print warning, it is allowed not having an exclude file
+    #_log_warn "${FUNCNAME[0]} called but ARCV__VARS["backupapptargetexcludefile"] is not defined"
     fi
 }
 
@@ -508,9 +444,10 @@ Arcv__showRevisionAddedFiles()
         local rel_ff="$(realpath --relative-to "${revSrc}" "$ff")"
         #_log_vars ff rel_ff revSrc
         if [ "${rel_ff}" != "." ] && [ ! -d "${ff}" ] ; then
-            Str__spaces ${_inIndent}
-            _colorText " ${rel_ff}" "blue_normal"
-            echo
+            Arcv__setColor rel_ff blue_normal
+            Str__spaces $((${_inIndent}+1))
+            if [ "${ARCV__VARS[output_format]}" = plain ] ; then rel_ff="+ ${rel_ff}" ; fi
+            echo -e "${rel_ff}"
         fi
     done< <(find "$revSrc")
 }
@@ -531,14 +468,46 @@ Arcv__showRevisionRemovedFiles()
         local droppedFile=""
         while IFS= read -r droppedFile ; do
             droppedFile="${droppedFile:2}"
-            _log_dbg "CHECK '${ARCV__VARS["backupsrcBasename"]}' '$droppedFile'"
+            #_log_dbg "CHECK '${ARCV__VARS["backupsrcBasename"]}' '$droppedFile'"
             droppedFile="$(realpath -m --relative-to "${ARCV__VARS["backupsrcBasename"]}" "${droppedFile}")"
-            Str__spaces ${_inIndent}
-            _colorText " ${droppedFile}" "red_normal"
-        echo
+
+            Arcv__setColor droppedFile red_normal
+            if [ "${ARCV__VARS[output_format]}" = plain ] ; then droppedFile="- ${droppedFile}" ; fi
+            Str__spaces $((${_inIndent}+1))
+            echo -e "${droppedFile}"
         done < <(cat "$droppedFilesFile")
     fi
 }
+
+Arcv__printRelHistLogHeader()
+{
+    local __inOutputFormat="$1"
+
+    if Input__testYesForcedInput ; then return 0;  fi
+
+    case "${__inOutputFormat}" in
+    adoc)
+        printf "%s\n" "
+[%autowidth,frame=noframe,grid=nogrid,role=\"css-arcv-rel-table\"]
+|===
+| Release tag | Revision | Log
+
+"
+        ;;
+    plain)
+        ;;
+    *)
+        if ${ARCV__VARS["subproc"]} ; then return 0;  fi
+
+        Term__clear
+        echo
+        _colorText " ${ARCV__VARS["backupapptarget"]}" "green_reverse"
+        echo
+        ;;
+    esac
+
+}
+
 
 :<<'EOF'
 Retrieves the release history
@@ -548,13 +517,10 @@ EOF
 Arcv__showReleaseHistory()
 {
     local __inInteractive=$1
+    local __inFormat=""
 
-    if ! ${ARCV__VARS["subproc"]} ; then
-        Term__clear
-        echo
-        _colorText " ${ARCV__VARS["backupapptarget"]}" "green_reverse"
-        echo
-    fi
+    if [ $# -ge 2 ] ; then __inFormat="$2" ; fi
+    if [ -z "${__inFormat}" ] ; then __inFormat="${ARCV__VARS["output_format"]}"; fi
 
     local releaseFolder="${ARCV__VARS["backupapptarget"]}/releases"   
     if [ ! -e "${releaseFolder}" ] ; then
@@ -570,10 +536,17 @@ Arcv__showReleaseHistory()
         _quit "No release tag has been created yet"
     fi
 
+    Arcv__printRelHistLogHeader "$__inFormat"
+
     local cnt=0
     local relRecords=""
+    local relRecordsDisplay=""
     local tag=""
     for tag in "${allTags[@]}" ; do
+        # if [ "$tag" = "R1.0.1" ] ; then tag="very_long_tag" ; fi #  DEBUG
+
+        local dateAndLogColor=""
+
         local backupappversiontarget="$(realpath "${releaseFolder}/$tag")" 
         local revision="$backupappversiontarget"
         Str__toTail revision "${ARCV__VARS["backupsrcBasename"]}.archive"
@@ -587,8 +560,30 @@ Arcv__showReleaseHistory()
             relLog="??? (release log file not available)"
         fi
 
-        relRecords="${relRecords}
-$tag;$revision;$refLog"
+
+        local newrec=""
+        Arcv__getLogLine newrec "${__inFormat}" "||" "css-arcv-rel-hist-col" "$tag" "$revision" "$refLog"
+        if [ -z "${relRecords}" ] ; then
+            relRecords="$newrec"
+        else            
+            relRecords="$newrec
+${relRecords}"
+        fi
+
+        Str__swap dateAndLogColor cyan_normal normal
+        Arcv__setColor tag green_bold
+        Arcv__setColor revision "${dateAndLogColor}"
+        Arcv__setColor refLog "${dateAndLogColor}"
+        Arcv__getLogLine newrec "${__inFormat}" "||" "css-arcv-rel-hist-col" "$tag" "$revision" "$refLog"
+        if [ -z "${relRecordsDisplay}" ] ; then
+            relRecordsDisplay="$newrec"
+        else            
+            relRecordsDisplay="$newrec
+${relRecordsDisplay}"
+        fi
+
+
+
         cnt=$(($cnt + 1))
     done
 
@@ -603,8 +598,7 @@ $tag;$revision;$refLog"
             tagCnt=$(( $tagCnt - 1))
         done
 
-
-        local history="$(Array__toTextTable "${relRecords}" ";")"
+        local history="$(Array__toTextTable "${relRecordsDisplay}" "|" "${relRecords}" true)"
         local selectionIndex=1
         local prevSelectionIndex=1
         local checkHead=false
@@ -613,7 +607,7 @@ $tag;$revision;$refLog"
             echo
             _colorText " ${ARCV__VARS["backupapptarget"]}" "blue_reverse"
             echo
-            Input__cursorSelect "${history}" "" $selectionIndex "" "+<h>head-diff" "h:$(($cnt))+?" "" "" selectionIndex
+            Input__cursorSelect "${history}" "" $selectionIndex "" "+<h>head-diff\U0020<w>view\U0020logs" "h:100000+?,w:200000+?" "" "" selectionIndex
 
             Term__reset
             if [ $selectionIndex -eq 0 ] ; then # 0=q pressed=exit  
@@ -622,18 +616,33 @@ $tag;$revision;$refLog"
             fi
 
             #_log_vars selectionIndex cnt # DEBUG
-            if [ ${selectionIndex} -gt $cnt ] ; then
-                selectionIndex=$(($selectionIndex - $cnt))
+            local doShowLog=false
+            if [ ${selectionIndex} -gt 200000 ] ; then
+                selectionIndex=$(($selectionIndex - 200000))
+                doShowLog=true
+            elif [ ${selectionIndex} -gt 100000 ] ; then
+                selectionIndex=$(($selectionIndex - 100000))
                 checkHead=true
             else
                 checkHead=false
             fi
-            #_log_vars selectionIndex checkHead # DEBUG
 
             # handle diff at index
             local fIndex=$(($selectionIndex - 1)) # This is the index if we had an array starting from 0, except it is valid for diffTempHistoryFiles[$cnt] too        
             local selectedEntry="$(echo "$history"|head -n${selectionIndex}| tail -n1)"
-            if $checkHead ; then
+
+            if $doShowLog ; then
+                Term__clear
+                local tag="${reverseAllTags[$fIndex]}" 
+                local tagRevision=""
+                if Arcv__getInfoReleaseTagRevision "$tag" tagRevision ; then
+                    local viewlogCmd="arcv log --from=\"${tagRevision}\" ${ARCV__VARS[paging]}"
+                    eval "${viewlogCmd}"
+                else
+                    _log_err "Revision number couldn't be retrieved for tag '$tag'"
+                fi
+                Input__pressToContinue
+            elif $checkHead ; then
 
                 local diffTempHistoryFolder=""
                 Arcv__getReleaseTagImage "${reverseAllTags[$fIndex]}" diffTempHistoryFolder
@@ -648,40 +657,66 @@ $tag;$revision;$refLog"
                     local diffTempHistoryFolder2=""
                     Arcv__getReleaseTagImage "${reverseAllTags[$fIndex]}" diffTempHistoryFolder2
 
-                    meld "${diffTempHistoryFolder1}/${ARCV__VARS["backupsrcBasename"]}/" "${diffTempHistoryFolder2}/${ARCV__VARS["backupsrcBasename"]}/" &>/dev/null # don't disturb current menu display
+                    meld "${diffTempHistoryFolder2}/${ARCV__VARS["backupsrcBasename"]}/" "${diffTempHistoryFolder1}/${ARCV__VARS["backupsrcBasename"]}/"  &>/dev/null # don't disturb current menu display
                 fi
             fi
         done
     else
-        relRecords="Release tag;Revision;Log
-${relRecords}"
-        Array__toTextTable "${relRecords}" ";"
+
+        case "${__inFormat}" in
+        adoc)
+            printf "%s\n" "${relRecordsDisplay}" 
+            ;;
+        plain)
+            local relHist="$(Array__toTextTable "${relRecords}" "|" "${relRecords}" true)"
+            #echo -e "${relHist}"
+
+            printf "%s\n" "${relHist}" 
+            ;;
+        *)
+            #relRecords="Release tag;Revision;Log
+#${relRecords}"
+            local relHist="$(Array__toTextTable "${relRecordsDisplay}" "|" "${relRecords}" true)"
+            echo -e "${relHist}"
+            ;;
+        esac
+
+        Arcv__printHistLogTrailer # This should be passed but is only relevant for adoc anyway"${__inFormat}"
     fi
 }
 
 :<<'EOF'
 Top function to show the revision log message (global history)
-@param [1] revision number
+@param [1] current revision number
+@param [2] the most recent revision number or release tag to start from
+@param [3] to oldest revision number or release tag to end
 EOF
 
 Arcv__showHistory()
 {
-    local __inArcVersion=$1
+    local __inCurrentVersion="$1"
+    local fromVersion="$2"  # If release will be converted to rev num
+    local toVersion="$3"    # If release will be converted to rev num
+    local inFormat=""
 
-    if ! ${ARCV__VARS["subproc"]} ; then
-        Term__clear
-        echo
-        _colorText " ${ARCV__VARS["backupapptarget"]}" "green_reverse"
-        echo
+    if [ $# -ge 4 ] ; then __inFormat="$4"; fi
+    if [ -z "${__inFormat}" ] ; then __inFormat="${ARCV__VARS["output_format"]}"; fi
+
+    if ! Arcv__histLogVersionCheck __inCurrentVersion fromVersion toVersion ; then 
+        return 1
     fi
 
-    local cnt=0
-    local colscheme=""
-    local colswitch=false
+    Arcv__printHistLogHeader        
 
-    while [ ${__inArcVersion} -ge 0 ] ; do
+    local cnt=0
+    local scanVersion=$fromVersion
+    local history=""
+    declare -a revisionsIndexes
+
+    while [ ${scanVersion} -ge ${toVersion} ] ; do
         local dateAndLogColor=""
         # Ask to press every 5 log
+:<<'EOF'
         if [ $cnt -eq 5 ] ; then
             cnt=0
             if ! Input__testYesForcedInput ; then
@@ -694,82 +729,149 @@ Arcv__showHistory()
             fi
             #if [ "$var" = a ] ; then echo; return 0; fi
         fi
-
-        # Alternate colors
-        if $colswitch ; then colswitch=false; else colswitch=true; fi
-        if $colswitch; then 
-            colscheme="white_reverse"
-        else
-            colscheme="cyan_reverse"
-        fi
-        
-        Str__swap dateAndLogColor cyan_normal white_normal
+EOF
+      
+        Str__swap dateAndLogColor cyan_normal normal
 
         # Increment arcversion and process next change log
-        ARCV__VARS["backupappversiontarget"]="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${__inArcVersion}"
+        ARCV__VARS["backupappversiontarget"]="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${scanVersion}"
         local revSrc="${ARCV__VARS["backupappversiontarget"]}/${ARCV__VARS["backupsrcBasename"]}"
 
-        local revisionText="${__inArcVersion}"
+        local revisionText="${scanVersion}"
+        local indentRevCorr=$(( ${#fromVersion} - ${#revisionText} )) 
+        Str__indent $indentRevCorr revisionText
+
         local revDate="???"
         local changeLog="???"
         local lineHead=""
         if [ -d "${ARCV__VARS["backupappversiontarget"]}" ] ; then
             local changeLogFile="${ARCV__VARS["backupappversiontarget"]}/CHANGE_LOG"            
             if [ -f "${changeLogFile}" ] ; then
-                changeLog="$(cat "${changeLogFile}")"
-                revDate="$(date -d "$(stat -c "%z" "$changeLogFile")" +"%F %T")"
-
-                lineHead="$revisionText $revDate "
-                Str__fitToLineWidth changeLog 80
+                Arcv__getFormattedChangeLogTextAndDate "${changeLogFile}" changeLog revDate
+                lineHead="${revisionText} $revDate "
                 Str__indent ${#lineHead} changeLog 1
 
-                _setColored revisionText green_bold
-                _setColored revDate "${dateAndLogColor}" # cyan_normal
-                _setColored changeLog "${dateAndLogColor}" # white_normal
+
+                Arcv__setColor revisionText green_bold
+                Arcv__setColor revDate "${dateAndLogColor}" # cyan_normal
+                Arcv__setColor changeLog "${dateAndLogColor}" # white_normal
 
             else
                 lineHead="$revisionText $revDate "
-                _setColored revisionText yellow_reverse
-                _setColored revDate yellow_reverse
+                Arcv__setColor revisionText yellow_normal
+                Arcv__setColor revDate yellow_normal
                 changeLog="no message available"
-                _setColored changeLog yellow_reverse
+                Arcv__setColor changeLog yellow_normal
             fi
         else
             lineHead="$revisionText $revDate "
-            _setColored revDate red_reverse
+            Arcv__setColor revisionText red_normal
+            Arcv__setColor revDate red_normal
             changeLog="??? archive folder ${ARCV__VARS["backupappversiontarget"]} does not exist"
-            _setColored changeLog red_reverse
-        fi
-        echo -e "$revisionText $revDate $changeLog" 
-
-        # Show the added files of the revision, these are simply the files that were copied in the revision folder
-        # since identical files are not copied over and over again.
-        if ${ARCV__VARS["verbose"]} ; then
-            Arcv__showRevisionAddedFiles $((${#lineHead}-1))
-            Arcv__showRevisionRemovedFiles $((${#lineHead}-1))
+            Arcv__setColor changeLog red_normal
         fi
 
-        __inArcVersion=$((${__inArcVersion} - 1))
+        local newLine=""
+        Arcv__getLogLine newLine "${__inFormat}" " " "css-arcv-hist-col" "$revisionText" "$revDate" "${changeLog}"
+
+        revisionsIndexes[$cnt]=${scanVersion}
+
+        if ! Input__testYesForcedInput ; then
+            echo -e "$newLine" 
+        else        
+            if [ -z "${history}" ] ; then
+                history="$newLine"
+            else            
+                history="$history
+$newLine"
+            fi
+        fi
+
+        if ! Input__testYesForcedInput ; then        
+            # Show the added files of the revision, these are simply the files that were copied in the revision folder
+            # since identical files are not copied over and over again.
+            if ${ARCV__VARS["verbose"]} ; then
+                Arcv__showRevisionAddedFiles $((${#lineHead}-1))
+                Arcv__showRevisionRemovedFiles $((${#lineHead}-1))
+            fi
+        fi
+
+        scanVersion=$((${scanVersion} - 1))
         cnt=$(($cnt + 1))
     done
 
+    # If not interactive exit immediately. The display is done
+    # progressively above
+    if ! Input__testYesForcedInput ; then  
+        Arcv__printHistLogTrailer
+        return 0
+    fi
+
+    #Str__trim "$menuIgnIndex" menuIgnIndex
+    local selectionIndex=1
+    local checkHead=false
+    while true; do
+        Term__clear
+        echo
+        _colorText " ${ARCV__VARS["backupapptarget"]}" "blue_reverse"
+        echo
+        Input__cursorSelect "${history}" "" $selectionIndex "" "+<h>head-diff" "h:$(($cnt))+?" "" "" selectionIndex
+
+        Term__reset          
+        # 0=q pressed=exit  
+        if [ $selectionIndex -eq 0 ] ; then
+            echo
+            return 0
+        fi
+        
+        #_log_vars selectionIndex cnt
+        if [ ${selectionIndex} -gt $cnt ] ; then
+            selectionIndex=$(($selectionIndex - $cnt))
+            checkHead=true
+        else
+            checkHead=false
+        fi
+        # handle diff at index
+        local fIndex=$(($selectionIndex - 1)) 
+        local selectedEntry="$(echo "$history"|head -n${selectionIndex}| tail -n1)"
+        if $checkHead ; then
+            local selectedRev=${revisionsIndexes[$fIndex]}
+            #_log "Diffing head with revision ${selectedRev}" # DEBUG
+            av meld ${selectedRev}vshead &>/dev/null # don't disturb current menu display
+        else                    
+            # check with previous
+            if [ $fIndex -lt $(($cnt-1)) ] ; then
+                local selectedRev=${revisionsIndexes[$fIndex]}
+                local prevRevision=$(( ${selectedRev} - 1 ))
+                #_log "Diffing ${selectedRev} with ${prevRevision}" # DEBUG
+                av meld ${selectedRev}vs${prevRevision} &>/dev/null # don't disturb current menu display
+            fi
+        fi
+    done
 }
 
 :<<'EOF'
 Top function to show the revision log message for a specific file (file history)
-@param [1] revision number
+@param [1] Path to the file relatively to the source root folder
+@param [2] Revision number
+@param [3] the most recent revision number or release tag to start from
+@param [4] to oldest revision number or release tag to end
 EOF
 
 Arcv__showFileHistory()
 {
-    Term__clear
-    echo
-    _colorText " ${ARCV__VARS["backupapptarget"]}" "green_reverse"
-    echo
+    local __inCurrentVersion="$2"
+    local fromVersion="$3"  # If release will be converted to rev num
+    local toVersion="$4"    # If release will be converted to rev num
 
-    local __inArcVersion=$1
+    if ! Arcv__histLogVersionCheck __inCurrentVersion fromVersion toVersion ; then 
+        return 1
+    fi
+
+    Arcv__printHistLogHeader        
+
+    local __revisionlog_file=$1
     local cnt=0
-    local colscheme=""
     local history=""
     local historyMissing=""
     local sizeBackupTarget=$(( ${#ARCV__VARS["backuptarget"]} + 1)) # +1 for the / separator
@@ -779,33 +881,52 @@ Arcv__showFileHistory()
     declare -a diffTempHistoryFiles
 
     # First build the list 
-    while [ ${__inArcVersion} -ge 0 ] ; do
+    local scanVersion=$fromVersion
+    while [ ${scanVersion} -ge ${toVersion} ] ; do
+        local dateAndLogColor=""
 
         # Increment arcversion and process next change log
-        backupappversiontarget="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${__inArcVersion}"
+        backupappversiontarget="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${scanVersion}"
         local revSrc="${backupappversiontarget}/${ARCV__VARS["backupsrcBasename"]}"
 
-        if [ -f "${revSrc}/${ARCV__VARS["revisionlog_file"]}" ] ; then
+        if [ -f "${revSrc}/${__revisionlog_file}" ] ; then
             local diffTempFile
             File__createTempFile diffTempFile
-            cp "${revSrc}/${ARCV__VARS["revisionlog_file"]}" "$diffTempFile"
+            cp "${revSrc}/${__revisionlog_file}" "$diffTempFile"
             diffTempHistoryFiles[$cnt]="$diffTempFile"
         else
-            __inArcVersion=$((${__inArcVersion} - 1))
+            scanVersion=$((${scanVersion} - 1))
             continue
         fi
 
+        Str__swap dateAndLogColor cyan_normal normal
+
+        # Construct the revision text
+        local revisionText="${scanVersion}"
+        local indentRevCorr=$(( ${#fromVersion} - ${#revisionText} )) 
+        Str__indent $indentRevCorr revisionText 
+        local changeLog=""
+
+        # Handle diverse output cases
         if [ ! -d "${backupappversiontarget}" ] ; then
+            Arcv__setColor revisionText green_bold
+            changeLog="missing ${backupappversiontarget:$sizeBackupTarget}"
+            Arcv__setColor changeLog red_normal
+
             # Ignore if no entry in menu
-            local newLine="$(_colorText " ${__inArcVersion}" "green_bold") $(_colorText "missing ${backupappversiontarget:$sizeBackupTarget}" red_normal)"
-            if [ -z "${history}" ] ; then
-                history="$newLine"
-            else            
-                history="$history
+            local newLine="$revisionText $changeLog"
+            if ! Input__testYesForcedInput ; then
+                echo -e "$newLine" 
+            else
+                if [ -z "${history}" ] ; then
+                    history="$newLine"
+                else            
+                    history="$history
 $newLine"
+                fi
             fi
             
-            __inArcVersion=$((${__inArcVersion} - 1))
+            scanVersion=$((${scanVersion} - 1))
             cnt=$(($cnt + 1))
             menuIgnIndex="$cnt $menuIgnIndex"
             menuIgnIndexMap[$cnt]=$cnt
@@ -814,35 +935,56 @@ $newLine"
     
         local changeLogFile="${backupappversiontarget}/CHANGE_LOG"            
         if [ ! -f "${changeLogFile}" ] ; then
+            Arcv__setColor revisionText green_bold
+            changeLog="missing ${backupappversiontarget:$sizeBackupTarget}"
+            Arcv__setColor changeLog yellow_normal
+
             # Ignore if missing change log file
-            local newLine="$(_colorText " ${__inArcVersion}" "green_bold") $(_colorText "missing ${changeLogFile:$sizeBackupTarget}" yellow_normal)"
-            if [ -z "${history}" ] ; then
-                history="$newLine"
-            else            
-                history="$history
+            local newLine="$revisionText $changeLog"
+
+            if ! Input__testYesForcedInput ; then
+                echo -e "$newLine" 
+            else
+                if [ -z "${history}" ] ; then
+                    history="$newLine"
+                else            
+                    history="$history
 $newLine"
+                fi
             fi
-            __inArcVersion=$((${__inArcVersion} - 1))
+
+            scanVersion=$((${scanVersion} - 1))
             cnt=$(($cnt + 1))
             menuIgnIndex="$cnt $menuIgnIndex"
             menuIgnIndexMap[$cnt]=$cnt
             continue
         fi
 
-        local changeLog="$(cat "${changeLogFile}")"
-        local revDate="$(date -d "$(stat -c "%z" "$changeLogFile")" +"%F %T")"        
-        #local newLine="${__inArcVersion} $revDate $changeLog"
-        local newLine="$(_colorText " ${__inArcVersion}" "green_bold") $(_colorText "$revDate" "cyan_normal") $changeLog"
-        #local newLine=" ${__inArcVersion} $(_colorText "$revDate" "cyan_normal") $changeLog"
-        if [ -z "${history}" ] ; then
-            history="$newLine"
-        else            
-            history="$history
+
+        Arcv__getFormattedChangeLogTextAndDate "${changeLogFile}" changeLog revDate
+
+        local lineHead="${revisionText} $revDate "
+        Str__indent ${#lineHead} changeLog 1
+
+        Arcv__setColor revisionText green_bold
+        Arcv__setColor revDate "${dateAndLogColor}" # cyan_normal
+        Arcv__setColor changeLog "${dateAndLogColor}" # white_normal
+
+        local newLine=""
+        Arcv__getLogLine newLine "${__inFormat}" " " "css-arcv-hist-col" "$revisionText" "$revDate" "${changeLog}"
+
+        if ! Input__testYesForcedInput ; then
+            echo -e "$newLine" 
+        else
+            if [ -z "${history}" ] ; then
+                history="$newLine"
+            else            
+                history="$history
 $newLine"
+            fi
         fi
 
-
-        __inArcVersion=$((${__inArcVersion} - 1))
+        scanVersion=$((${scanVersion} - 1))
         cnt=$(($cnt + 1))
     done
 
@@ -856,6 +998,11 @@ $historyMissing
         echo
     fi
 EOF
+
+    if ! Input__testYesForcedInput ; then
+        Arcv__printHistLogTrailer
+        return 0
+    fi
 
     #echo "$history"
     Str__trim "$menuIgnIndex" menuIgnIndex
@@ -886,15 +1033,14 @@ EOF
         fi
         # handle diff at index
         local fIndex=$(($selectionIndex - 1)) # This is the index if we had an array starting from 0, except it is valid for diffTempHistoryFiles[$cnt] too        
-        local selectedEntry="$(echo "$history"|head -n${selectionIndex}| tail -n1)"
         if [  ! -v menuIgnIndexMap[$selectionIndex] ] ; then
             if [ -v diffTempHistoryFiles[$fIndex] ] ; then
                 if $checkHead ; then
-                    meld "${diffTempHistoryFiles[$fIndex]}"  "${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}/${ARCV__VARS["revisionlog_file"]}" &>/dev/null # don't disturb current menu display
+                    meld "${diffTempHistoryFiles[$fIndex]}"  "${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}/${__revisionlog_file}" &>/dev/null # don't disturb current menu display
                 else                    
                     # check with previous
                     if [ $fIndex -lt $(($cnt-1)) ] ; then
-                        meld "${diffTempHistoryFiles[$(($fIndex+1))]}" "${diffTempHistoryFiles[$fIndex]}" &>/dev/null # don't disturb current menu display
+                        meld "${diffTempHistoryFiles[$fIndex]}" "${diffTempHistoryFiles[$(($fIndex+1))]}"  &>/dev/null # don't disturb current menu display
                     fi
                 fi
             fi
@@ -906,6 +1052,383 @@ EOF
     done
 
 }
+
+Arcv__histLogVersionCheck()
+{
+    local -n __inCheckVersion=$1
+    local -n __inFromVersion=$2
+    local -n __inToVersion=$3
+
+    if ! Int__isInt "${__inCheckVersion}" ; then
+        _log_err "${FUNCNAME[0]} : first argument '${__inCheckVersion}' is not a revision number"
+        return 1
+    fi
+
+    if Str__isEmpty "${__inFromVersion}" ; then
+        # By default we start from current revision
+        __inFromVersion=${__inCheckVersion}
+    fi
+    if Str__isEmpty "${__inToVersion}" ; then
+        # By default we end at 0
+        __inToVersion=0
+    fi
+
+    if ! Arcv__resolveFromToRevision "${__inCheckVersion}" "${__inFromVersion}" "${__inToVersion}" "${!__inFromVersion}" "${!__inToVersion}" ; then
+        return 1
+    fi
+
+}
+
+Arcv__printHistLogHeader()
+{
+    if Input__testYesForcedInput ; then return 0;  fi
+
+    case "${ARCV__VARS["output_format"]}" in
+    adoc)
+        printf "%s\n" "
+[%autowidth,frame=noframe,grid=nogrid,role=\"css-arcv-hist-table\"]
+|===
+| Revision | Date | Log 
+
+"
+        ;;
+    plain)
+        ;;
+    *)
+        if ${ARCV__VARS["subproc"]} ; then return 0;  fi
+
+        Term__clear
+        echo
+        _colorText " ${ARCV__VARS["backupapptarget"]}" "green_reverse"
+        echo
+        ;;
+    esac
+}
+
+Arcv__printHistLogTrailer()
+{
+    if Input__testYesForcedInput ; then return 0;  fi
+
+    case "${ARCV__VARS["output_format"]}" in
+    adoc)
+        printf "%s\n" "
+|===
+"
+        ;;
+    *)
+        ;;
+    esac
+}
+
+:<<'EOF'
+EOF
+Arcv__getFormattedChangeLogTextAndDate()
+{
+    local __inChangeLogFile="$1"
+    local -n __inChangeLog=$2
+    local -n __inRevDate=$3
+
+    # Get log file date
+    __inRevDate="$(date -d "$(stat -c "%z" "${__inChangeLogFile}")" +"%F %T")"
+
+    # Get text and format
+    __inChangeLog="$(cat "${__inChangeLogFile}")"    
+    if Str__isEmpty "${ARCV__VARS["output_format"]}" && ! Input__testYesForcedInput; then
+        Str__fitToLineWidth "${!__inChangeLog}" 80                
+    fi
+}
+
+Arcv__getLogLine()
+{
+    local -n _outLine=$1
+    shift
+    local __inOutputFormat="$1"
+    shift
+    local __inSep="$1"
+    shift
+    local __inCss="$1"  # Only relevant in adoc output format
+    shift
+    #"css-no-word-break"
+
+    if [ -z "${__inOutputFormat}" ] ; then
+        __inOutputFormat="${ARCV__VARS["output_format"]}"
+    fi
+
+    # By default, space is the separator in plain output
+    # except if the input separator has been doubled
+    #
+    if [ "${__inOutputFormat}" == plain ] && [ ${#__inSep} -eq 1 ] ; then
+        __inSep=" "
+    fi    
+    if [ ${#__inSep} -ge 2 ] ; then
+        __inSep="${__inSep:0:1}"
+    fi
+
+    _outLine=""
+    local cnt=0
+    while [ $# -ne 0 ] ; do
+        local __val="$1"
+        shift
+        case "${__inOutputFormat}" in
+        adoc)
+            __val="${__val/|/\\|}"
+            _outLine+=" a| 
+[${__inCss}${cnt}]
+--
+${__val}
+--
+"
+            ;;
+        plain)
+            if [ $# -eq 0 ] ; then
+                _outLine+="${__val}"
+            else
+                _outLine+="${__val}${__inSep}"
+            fi
+            ;;
+        *)
+            if [ $# -eq 0 ] ; then
+                _outLine+="${__val}"
+            else
+                _outLine+="${__val}${__inSep}"
+            fi
+            ;;
+        esac
+        cnt=$(( $cnt + 1))
+    done
+}
+
+:<<'EOF'
+The purpose of this function is multiple:
+- Wrapper for the color setting  to deal consistenly with colors for the various output formats.
+- For terminal colors, ensures that each line is colored, because the color sequence is only valid till the end of the line.
+EOF
+Arcv__setColor()
+{
+    local -n __inText=$1
+    local __inColor="$2"
+    local effect=""
+    local basecol=""
+
+    # Shellapi color format is <color>_<effect>
+    if [[ "$__inColor" =~ ^([a-zA-Z0-9]+)_([a-zA-Z0-9]+)$ ]] ; then 
+        basecol="${BASH_REMATCH[1]}"
+        effect="${BASH_REMATCH[2]}"
+    else    
+        effect=""
+        basecol="${__inColor}"
+        if Array__contains_by_string "${!Term__textMode2TextModeCode[*]}" "$basecol" ; then
+            basecol=""
+            effect="$basecol"
+        fi
+    fi    
+
+    case "${ARCV__VARS[output_format]}" in
+    adoc)
+        Str__trim "${__inText}" "${!__inText}"
+
+        # Adoc color
+        if ! Str__isEmpty "$basecol" ; then 
+            __inText="[${basecol}]#${__inText}#"
+        fi
+
+        # Adoc effect
+        if [ "${effect}" = "bold" ] ; then
+            __inText="**${__inText}**"
+        elif [ "${effect}" = "italic" ] ; then
+            __inText="__${__inText}__"
+        fi
+        ;;
+    plain)
+        ;;
+    *)
+        local newColoredText=""
+        local line=""
+        while IFS='' read -r line ; do
+            _setColored line "${__inColor}"
+            #_log_vars line >&2
+            if Str__isEmpty "${newColoredText}" ; then
+                newColoredText="$line"
+            else
+                newColoredText+="
+$line"
+            fi
+        done <<< "${__inText}"
+
+        __inText="${newColoredText}"
+        ;;
+    esac
+
+}
+
+:<<'EOF'
+EOF
+Arcv__createReleaseTag()
+{
+    local -n _inArcVersion=$1
+
+    local VERSIONFILE="${ARCV__VARS["backupsrc"]}/VERSION.txt"
+    if [ ! -f "${VERSIONFILE}" ] ; then
+        if Input__confirm_high "${VERSIONFILE} does not exist. Does you want to create it (starting from 1.0.0)? " || (echo && _exit -21 "Aborted") ; then
+            printf "1.0.0" > "${VERSIONFILE}"
+            av -y --silent -m "Added ${VERSIONFILE} while requesting creation of release tag"
+            if [ $? -eq 0 ] ; then
+                _log_high "Created VERSION.txt"
+                _inArcVersion=$(( _inArcVersion + 1))
+                lastBackupappversiontarget="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${_inArcVersion}"
+                #_log_vars lastBackupappversiontarget
+            else
+                rm -f "${VERSIONFILE}" &>/dev/null
+                _exit -1 "Failed to commit VERSION.txt. Release tagging aborted."
+            fi
+        fi
+        echo
+    fi
+
+    #
+    # Resolve 3 version numbers from VERSION.txt
+    # and check if not tag yet
+    #
+    local maj
+    local min
+    local upd
+    local ver="$(cat "$VERSIONFILE")" 
+    if ! Int__readVersion "$ver" maj min upd; then
+        _exit -21 "${VERSIONFILE} contains invalid version string '${ver}'"
+    fi
+
+    Arcv__askToConfirmOrAbortUponModification
+
+    local releaseFolder="${ARCV__VARS["backupapptarget"]}/releases"
+    mkdir -p "${releaseFolder}" &>/dev/null
+
+    local releaseTag="R${maj}.${min}.${upd}"
+    local releaseLink="${releaseFolder}/${releaseTag}"
+    local releaseLog="${releaseFolder}/${releaseTag}.log"
+
+    if [ -L "${releaseLink}" ] ; then
+        _exit -22 "Version ${maj}.${min}.${upd} has already been tagged. File exists: ${releaseLink}"
+    fi        
+
+    #
+    # Now , ask the user about the next version and update auto.
+    # File version.txt
+    #
+    local futureVer="${maj}.${min}.$(( ${upd}+1)) 
+${maj}.$((${min}+1)).0 
+$((${maj}+1)).0.0"
+    local futureVerAsArray=($futureVer)
+
+
+    if ! ${ARCV__VARS["subproc"]} ; then
+        Term__clear
+    fi
+    _log_high "Going to create release tag ${releaseTag}"
+    _log ""
+    local revLog
+    if [ ! -z "${ARCV__VARS["log_message"]}" ] ; then
+        revLog="${ARCV__VARS["log_message"]}"
+    else
+        if ! Input__sentence "Enter release log" "" revLog ; then
+            _exit -23 "Aborted"
+        fi
+    fi
+    echo "$revLog" > "${releaseLog}"
+
+    local selectionIndex=0
+    if ${ARCV__VARS["force-default-entry"]} ; then
+        selectionIndex=1
+    else
+        Input__cursorSelect "${futureVer}"  "Select next development version" 1
+        selectionIndex=$?
+        if [ $selectionIndex -eq 0 ] ; then
+            _exit -23 "Aborted"
+        fi
+        Term__reset
+    fi
+
+    #
+    # Create the release symbolic link and actual update of VERSION.txt
+    #
+    local relativeLastBackupappversiontarget="$(realpath --relative-to "${ARCV__VARS["backupapptarget"]}/releases" "${lastBackupappversiontarget}" )"
+    #_log_vars relativeLastBackupappversiontarget
+    #_quit ""
+
+    #_log_high "${futureVerAsArray[$(($selectionIndex-1))]}"
+    echo # To insert new line after menu, required
+    echo "${futureVerAsArray[$(($selectionIndex-1))]}" > "$VERSIONFILE"
+    if [ $? -ne 0 ] ; then  
+        _exit -24 "Failed to update '$VERSIONFILE'. Aborted"
+    fi
+
+    ln -s "${relativeLastBackupappversiontarget}" "${releaseLink}"
+    if [ $? -ne 0 ] ; then  
+        echo "$ver" > "$VERSIONFILE" # Restore initial version
+        _exit -24 "Failed to create symlink '$releaseLink'. Aborted"
+    fi
+
+    _log_high "Successfully created release tag ${releaseTag} for revision ${_inArcVersion}"
+
+}
+
+:<<'EOF'
+Tags the specified revision. As prerequesite, the revision must have been retrieved via setting of "diffrev".
+@param[1] revision to tag
+@param[2] tag name
+EOF
+Arcv__createReleaseTagForRevision()
+{
+    local -n _inArcVersion=$1
+    local __inTagName="$2"
+    _log_vars _inArcVersion
+
+    #Arcv__askToConfirmOrAbortUponModification
+
+    if ! ${ARCV__VARS["subproc"]} ; then
+        Term__clear
+    fi
+    _log_high "Going to create release tag ${__inTagName} for revision ${_inArcVersion}"
+    _log ""
+
+    local revLog
+    if [ ! -z "${ARCV__VARS["log_message"]}" ] ; then
+        revLog="${ARCV__VARS["log_message"]}"
+    else
+        if ! Input__sentence "Enter release log" "" revLog ; then
+            _exit -23 "Aborted"
+        fi
+    fi
+
+    local releaseFolder="${ARCV__VARS["backupapptarget"]}/releases"
+    mkdir -p "${releaseFolder}" &>/dev/null
+
+    local releaseLink="${releaseFolder}/${__inTagName}"
+    local releaseLog="${releaseFolder}/${__inTagName}.log"
+
+    if [ -L "${releaseLink}" ] ; then
+        _exit -22 "Release tag '${releaseLink}' already exists."
+    fi        
+
+    echo "$revLog" > "${releaseLog}"
+
+    #_log_vars releaseFolder releaseLink releaseLog revLog
+
+    #
+    # Create the release symbolic link and actual update of VERSION.txt
+    #
+    local relativeLastBackupappversiontarget="$(realpath --relative-to "${ARCV__VARS["backupapptarget"]}/releases" "${lastBackupappversiontarget}" )"
+    #_log_vars relativeLastBackupappversiontarget
+    #_quit ""
+
+    ln -s "${relativeLastBackupappversiontarget}" "${releaseLink}"
+    if [ $? -ne 0 ] ; then  
+        _exit -24 "Failed to create symlink '$releaseLink'. Aborted"
+    fi
+
+    _log_high "Successfully created tag ${__inTagName} for revision ${_inArcVersion}"
+
+}
+
 
 :<<'EOF'
 This changes are detected on the current source folder, this function asks for confirmation
@@ -1433,6 +1956,12 @@ Arcv__diff()
     local diffSecondDiffRevFolderIsTmp=false
     local verb=${ARCV__VARS["verbose"]}
     local cmd=""
+
+    if [ "${__inTool}" = "meld" ]  && ! Desktop__isAvailable ; then
+        _log_warn "This is not a desktop computer. Diff will be used instead of meld"
+        __inTool="diff"
+    fi
+
     if [ -z "${ARCV__VARS["2nd_diff_rev"]}" ] ; then
         #
         # Diff between current with head or a random revision
@@ -1442,8 +1971,14 @@ Arcv__diff()
         # to the HEAD folder by Arcv__getRevisionImage
         _log "COMPARING "${ARCV__VARS["backupsrc"]}" with revision ${ARCV__VARS["diff_rev"]}  : "${__inDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}""
 
-        cmd="'${ARCV__VARS["backupsrc"]}' '${__inDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}'"
+        if [ "${__inTool}" = "meld" ] ; then
+            cmd="'${ARCV__VARS["backupsrc"]}' '${__inDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}'"
+        else
+            cmd="'${__inDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}' '${ARCV__VARS["backupsrc"]}'"
+        fi
     else
+        # if ARCV__VARS["2nd_diff_rev"]}" is current,__inDiffRevFolder will actually pointing to the source
+
         #
         # Diff between head or a random revision and another revision or release tag
         # The correct image was retrieved at the first called getRevisionImage()
@@ -1455,7 +1990,11 @@ Arcv__diff()
             Arcv__getRevisionImage "${ARCV__VARS["2nd_diff_rev"]}" diffSecondDiffRevFolder diffSecondDiffRevFolderIsTmp
         fi
 
-        cmd="'${__inDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}' '${diffSecondDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}' "
+        if ${ARCV__VARS["invert_diff_arg"]} ; then
+            cmd="'${diffSecondDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}' '${__inDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}'"
+        else
+            cmd="'${__inDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}' '${diffSecondDiffRevFolder}/${ARCV__VARS["backupsrcBasename"]}' "
+        fi
     fi
 
     if [ "${__inTool}" = "meld" ] ; then
@@ -1470,14 +2009,23 @@ Arcv__diff()
 
         cmd="git diff ${gitdiffArgs} "$cmd""
     elif [ "${__inTool}" = "diff" ] ; then
-        _loadDep "diffutils"
+        local diffArgs
+
+        if [ "${ARCV__VARS["output_format"]}" == "plain" ] ; then
+            YAML__get ".plain-diff-args" diffArgs
+        else
+            YAML__get ".diff-diff-args" diffArgs
+        fi
 
         local diffExcludeFilter=""
         if [ ! -z "${ARCV__VARS["backupapptargetexcludefile"]}" ] ; then
             diffExcludeFilter="-X '${ARCV__VARS["backupapptargetexcludefile"]}'"
         fi
         
-        cmd="diff --no-dereference -r ${diffExcludeFilter} $cmd"
+        cmd="diff ${diffArgs} ${diffExcludeFilter} $cmd"
+        if Str__isEmpty "${ARCV__VARS["output_format"]}" && ! Str__isEmpty "${ARCV__VARS["paging"]}" ]; then 
+            cmd+=" ${ARCV__VARS[paging]}"
+        fi
     else
         _exit -10 "Unrecognized diff tool '${__inTool}'."
     fi
@@ -1629,6 +2177,9 @@ Arcv__parseDiffArgValue() {
             ARCV__VARS["diff_rev"]="current"
             ARCV__VARS["2nd_diff_rev"]="$diffArgVal"
 
+            # Source must be become the destination  so that 
+            # it can be identified what will be added and removed
+            ARCV__VARS["invert_diff_arg"]=true
             #_exit -1 "${diffArgVal} is an invalid argument" 
         fi
     fi
@@ -1642,6 +2193,9 @@ EOF
 Arcv__cleanup()
 {
     _log_dbg "cleanup callback called"
+
+    Sys__pool_sweepall Arcv__threadPool &>/dev/null
+
     File__deleteAllTempItems
     
     if [ $# -eq 1 ] && [ $1 -eq 0 ] ; then 
@@ -1789,14 +2343,14 @@ Arcv__listSources()
     local userIds=""
     local srcRev="0"
     local srcHash="0"
-    local line=""
-    local allEntries="Source;Head;Hash;Owner
-"
     local entry=""
-    while IFS='' read -r line ; do
-        local archivePath="${repoFolder}/${line}"
-        entry="${line%.*}"
-        #_log_dbg "$line: $entry"
+    local allEntries="Source;Head;Hash;Owner"
+
+    local allSourceNames=()
+    Arcv__getRepoSourceList "${repoFolder}" allSourceNames
+
+    for entry in "${allSourceNames[@]}" ; do
+        local archivePath="${repoFolder}/${entry}.archive"
 
         read userIds < <(stat -c "%U (%u)" "${archivePath}") 
 
@@ -1806,9 +2360,11 @@ Arcv__listSources()
             srcRev="${revision}"
 
             # Get the short SHA
-            local escapedSourceName=""
-            Arcv__getEscapedSrcBasenameForSrc "${entry}" escapedSourceName
-            local lastRevisionSHAFile="${archivePath}/${entry}.archive${revision}/._arcv_sha256_${escapedSourceName}"
+            local _hashFilename
+            Arcv__getInfoHashFilename _hashFilename "${entry}"
+
+            local lastRevisionSHAFile="${archivePath}/${entry}.archive${revision}/${_hashFilename}"
+
             if [ -f "${lastRevisionSHAFile}" ] ; then
                 local fullSha="$(cat "${lastRevisionSHAFile}")"
                 srcHash="${fullSha:0:16}"
@@ -1822,9 +2378,41 @@ Arcv__listSources()
 
         allEntries="${allEntries}
 $entry;$srcRev;$srcHash;${userIds}"
-    done < <(ls -1 "${repoFolder}")
+    done
 
     Array__toTextTable "${allEntries}" ";"
+}
+
+:<<'EOF'
+Gets the list of available source folders in the repository
+@param[1] in path to the repository
+@param[2] out ref to var containing the array of found source folders
+EOF
+
+Arcv__getRepoSourceList()
+{
+    local __repoFolder="$1"
+    local -n __outSources=$2
+    local line=""
+    local entry=""
+    __outSources=()
+    while IFS='' read -r line ; do
+        entry="${line%.*}"
+        #_log_dbg "$line: $entry"
+        __outSources+=("${entry}")
+    done < <(ls -1 "${__repoFolder}")
+}
+
+:<<'EOF'
+Tells whether the passed source exists in the repository
+@param[1] in path to the repository
+@param[2] out name of the source folder to look for
+EOF
+Arcv__repoSourceExists()
+{
+    local allSourceNames=()
+    Arcv__getRepoSourceList "$1" allSourceNames
+    Array__contains allSourceNames "$2"
 }
 
 Arcv__registerSource()
@@ -1949,17 +2537,125 @@ Arcv__getEscapedSrcBasenameForSrc()
     Str__replace __in_shafullpath_srcItemsEscaped "." "_"
 }
 
+:<<'EOF'
+Computes and outputs the SHA256 fingerprint for the specified folder.
+It relies on Arcv__getFolderSHA256() for the computation. This function only deals with the presentation to the user and error handling
+@param[1] the input folder for which to compute the fingerprint
+EOF
+Arcv__showFolderSHA256()
+{
+    local inputFolder="$1"
+    local repoSourceName=""
+
+    trapDirExits "${inputFolder}" 
+
+    local dirHash=""        
+    if ! Arcv__getFolderSHA256 "${inputFolder}" dirHash repoSourceName ; then
+        _exit -80 "Failed to compute hash for path '${inputFolder}'"
+    fi
+    # The hash of the head is stored in the last committed archive folder, not 
+    # below head/
+    if ${ARCV__VARS["verbose"]} ; then
+        echo ""
+        if [ -z "${repoSourceName}" ] ; then
+            echo "Hash signature for $(realpath "${inputFolder}") :"
+        else
+            echo "Hash signature for $(realpath "${inputFolder}") using exclusions of repo source '${repoSourceName}':"
+        fi
+    fi
+    echo "${dirHash}"
+    return 0
+}
+
+:<<'EOF'
+Computes and returns the SHA256 fingerprint for the source folder.
+@param[1] ref to var use to store computed fingerprint
+@param[2] ref to var use to store the data used to compute fingerprint
+EOF
+Arcv__getSourceSHA256()
+{
+    local -n __outSrcSHA256=$1
+    local -n __outSrcSHA256Data=$2
+    Arcv__getImageSHA256 "${ARCV__VARS["backupsrc"]}" "${!__outSrcSHA256}" "${!__outSrcSHA256Data}"
+}
+
+:<<'EOF'
+Computes and returns the SHA256 fingerprint for the passed image folder related to the current folder under revision controls.
+@param[1] ref to var use to store computed fingerprint
+@param[2] ref to var use to store the data used to compute fingerprint
+EOF
+Arcv__getImageSHA256()
+{
+    local __inImageFolder=$1
+    local -n __outImageSHA256=$2
+    local -n __outImageSHA256Data=$3
+    local lsIgnoreOptions=""    
+    Arcv__completeLsIgnorePatternsFromRepoExcludeFile lsIgnoreOptions
+    File__dirSHA256 "${__inImageFolder}" "${!__outImageSHA256}" "${lsIgnoreOptions}" "${!__outImageSHA256Data}"
+}
+
+
+:<<'EOF'
+Computes and returns the SHA256 fingerprint for the specified folder.
+
+It does not just call File__dirSHA256. From the folder basename , it attempts to detect a valid context source in the repository to regard to the excluded files.
+
+The context source can also be explictly set using option --source
+EOF
+Arcv__getFolderSHA256()
+{
+    local inputFolder="$1"
+    local -n __outSHA256=$2
+    local -n __outRepoSourceName=$3
+    local lsIgnoreOptions=""    
+
+    trapDirExits "${inputFolder}" 
+
+    inputFolder="$(realpath -m "${inputFolder}")"
+    File__basename "${inputFolder}" "${!__outRepoSourceName}"
+
+    if [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
+        __outRepoSourceName="${ARCV__VARS["explicit_backupsrc"]}"
+    elif [[ "$inputFolder" =~ ^(.+)"-"(.+)$ ]] ; then
+        #_log_vars  BASH_REMATCH[2]
+        File__basename "${BASH_REMATCH[1]}" "${!__outRepoSourceName}"
+
+        # If the attempt to resolve source from a revision or release does not match
+        # a known source (it could be a source containing an hyphen), 
+        # we fall back to the input folder basename
+        if ! Arcv__repoSourceExists "${ARCV__VARS["backuptarget"]}" "${__outRepoSourceName}" ; then
+            File__basename "${inputFolder}" "${!__outRepoSourceName}"
+        fi
+    # else it is the basename of the selected folder
+    fi
+
+    if [ ! -z "${__outRepoSourceName}" ] ; then
+        if ! Arcv__repoSourceExists "${ARCV__VARS["backuptarget"]}" "${__outRepoSourceName}" ; then
+            #_log_high "Detected '${__outRepoSourceName}' as source name, but there's no such source inside the repository. If necessary, specify the correct source using --source"
+            __outRepoSourceName=""
+        else
+            Arcv__setExplicitSource "${__outRepoSourceName}"
+            Arcv__getInfoAppArchiveRootDirPath ARCV__VARS["backupapptarget"]      
+            Arcv__getInfoAppExcludeFilePath ARCV__VARS["backupapptargetexcludefile"]      
+            Arcv__completeLsIgnorePatternsFromRepoExcludeFile lsIgnoreOptions
+        fi
+    fi
+
+    if ! File__dirSHA256 "${inputFolder}" "${!__outSHA256}" "${lsIgnoreOptions}" ; then
+        __outSHA256=""
+        return 1
+    fi
+}
+
 Arcv__compAndCheckSourceSHA256()
 {
     local __in_lastBackupappversiontarget="$1"
     local -n __out_sha256="$2"
     local -n __out_lastSha256="$3"
+    local -n __out_sha256_data=$4
     # First check whether anything changed compared to last backup
-
-    local lsIgnoreOptions=""    
-    Arcv__completeLsIgnorePatternsFromRepoExcludeFile lsIgnoreOptions
-    #_log_vars lsIgnoreOptions >&2 # DEBUG
-    if ! File__dirSHA256 "${ARCV__VARS["backupsrc"]}" "${!__out_sha256}" "${lsIgnoreOptions}"; then
+  
+    if ! Arcv__getSourceSHA256 "${!__out_sha256}" "${!__out_sha256_data}" ; then
         _exit -80 "Failed to recompute hash for source dir '${ARCV__VARS["backupsrc"]}'. Aborted."
     fi
 
@@ -1969,12 +2665,13 @@ _log_vars lsForSha256 __out_sha256 __in_lastBackupappversiontarget
 fi
 _log_vars lsForSha256 > /tmp/dbg.txt #&2
 EOF
-    local shafullpath_srcItemsEscaped
-    Arcv__getEscapedSrcBasename shafullpath_srcItemsEscaped
-
     #_log "__in_lastBackupappversiontarget: $__in_lastBackupappversiontarget"
     if [ ! -z "${__in_lastBackupappversiontarget}" ] ; then
-        local shafullpath="${__in_lastBackupappversiontarget}/._arcv_sha256_${shafullpath_srcItemsEscaped}"
+
+        local _hashFilename
+        Arcv__getInfoHashFilename _hashFilename
+
+        local shafullpath="${__in_lastBackupappversiontarget}/${_hashFilename}"
         #_log "shafullpath: $shafullpath"
         if [ -f "${shafullpath}" ] ; then
             __out_lastSha256=$(cat "${shafullpath}")
@@ -2339,13 +3036,14 @@ Arcv__menuFileAction() {
     local referentSourceDir="$1"
     shift
     local __inFileLines="$1"        # This contains the absolute files paths
-    local __inFileLinesAsArray=($1)    
     local fileMenu=""               # This contains the relative files paths
     local fileMenuAsArray=()
     shift
     local -n automaticLog=$1
 
-    _loadDep "meld"
+    if Desktop__isAvailable ; then
+        _loadDep "meld"
+    fi
 
     Str__trim "${__inFileLines}" __inFileLines
     if [ -z "${__inFileLines}" ] ; then
@@ -2356,6 +3054,7 @@ Arcv__menuFileAction() {
     local newAutoLog="${newAutoLog}${title}:" 
     local fileMenu=""
     local aDiffedFile
+    local cnt=0
     while IFS='' read -r aDiffedFile ; do
         #_log_vars aDiffedFile
         Str__trim "${aDiffedFile}" aDiffedFile
@@ -2368,18 +3067,36 @@ Arcv__menuFileAction() {
                 fileMenu="$fileMenu
 ${changedFilePath}"
             fi
+
+            fileMenuAsArray+=("$changedFilePath")
+
+            cnt=$(( $cnt + 1))
+            
         fi
     done < <(echo "${__inFileLines}")
-    fileMenuAsArray=(${fileMenu})
 #Arcv__listCommitFiles "Deleted" "${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}" "$onlyInHead" 
 
     _log ""
-    _colorText "${title}:" "white_underline" && echo
+    _colorText "${title}:" "underline" && echo
 
     local selectionIndex=1
+    local nbLinesShift=5
     while true; do
-        Input__cursorSelect "${fileMenu}" "" ${selectionIndex}
-        selectionIndex=$?
+        Input__cursorSelect "${fileMenu}" "" ${selectionIndex} "" "-1${nbLinesShift}+\U23CE\U0020meld\U0020<d>iff\U0020<r>estore\U0020<R>eset" "d:100000+?,r:200000+?,R:300000+?" "" "" selectionIndex 2>/dev/null
+        local doReset=false
+        local doRestoreFile=false
+        local useDiffInsteadOfMeld=false
+        if [ ${selectionIndex} -gt 300000 ] ; then
+            selectionIndex=$(($selectionIndex - 300000))
+            doReset=true
+        elif [ ${selectionIndex} -gt 200000 ] ; then
+            selectionIndex=$(($selectionIndex - 200000))
+            doRestoreFile=true
+        elif [ ${selectionIndex} -gt 100000 ] ; then
+            selectionIndex=$(($selectionIndex - 100000))
+            useDiffInsteadOfMeld=true
+        fi
+        
         Term__reset            
         if [ $selectionIndex -eq 0 ] ; then
             echo
@@ -2390,29 +3107,309 @@ ${changedFilePath}"
                     automaticLog="${automaticLog}. ${newAutoLog}"
                 fi
             fi
+            #Sys__pool_sweepall Arcv__threadPool
             return 0
         fi
+
         local fIndex=$(($selectionIndex - 1))
-        #_log
-        #_log "selected ${__inFileLinesAsArray[$fIndex]}"
-        #_log "file in head: ${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}/${fileMenuAsArray[$fIndex]}"
-        meld "${__inFileLinesAsArray[$fIndex]}" "${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}/${fileMenuAsArray[$fIndex]}" &>/dev/null # don't disturb current menu display
 
-        Term__moveCursorUp "${#fileMenuAsArray[@]}"
+        # currentSourceFile is an absolute path required for the diff
+        local currentSourceFile="${referentSourceDir}/${fileMenuAsArray[$fIndex]}"
+        # relCurrentSourceFile is the relative path required for arcv commands
+        #_log_vars referentSourceDir fileMenuAsArray[$fIndex]
+        local relCurrentSourceFile="${fileMenuAsArray[$fIndex]}"
+        #exit 0
 
+        if $doReset ; then
+            Term__clear $(($nbLinesShift+1))
+            _log "Listing all changes..."
+
+            $0 --subproc -l | awk 'BEGING {lc=0} { lc=lc+1; if (lc > 3) print $0;}'
+            if [ $? -ne 0 ]; then
+                _log_error "An error was encountered while listing all changes using $0 -l"
+                continue
+            fi
+
+            echo
+            if ! Input__confirm_high "Reset all above changes?" ; then
+                _exit -222 "Commit aborted"
+            fi
+            echo
+
+            local resetCmd="$0 co --subproc"
+            local resetCmdDsp="arcv co"
+            local resetRes=0
+            _log_status high "$resetCmdDsp"
+            eval "${resetCmd}"
+            resetRes=$?
+            if [ $resetRes -eq 0 ] ; then
+                _log_status_end ok
+                echo
+                exec $0 -l --subproc
+            else
+                _exit -220 ""
+            fi
+        elif $doRestoreFile ; then
+            Term__clear $(($nbLinesShift+1))
+            local restoreCmd="$0 co '${relCurrentSourceFile}'"
+            local restoreCmdDsp="arcv co '${relCurrentSourceFile}'"
+            #Input__timeoutKeystroke "Checking out '$relCurrentSourceFile' " 5 " seconds. Press any key to start immediately."
+
+            local restoreRes=0
+            _log_status high "$restoreCmdDsp"
+            eval "${restoreCmd}"
+            restoreRes=$?
+            if [ $restoreRes -eq 0 ] ; then
+                _log_status_end ok
+                cnt=$(($cnt - 1))
+                local fileMenuItem="$(echo "$fileMenu"|head -n${selectionIndex}|tail -n1)"        
+                fileMenu="$(echo "${fileMenu}"|grep -v -E ^"${fileMenuItem}"$)"
+                #echo
+                #_log_vars fileMenu
+                # Rebuild array
+                fileMenuAsArray=()
+                while IFS='' read -r fileMenuItem ; do fileMenuAsArray+=("$fileMenuItem");  done < <(echo "${fileMenu}") 
+                #echo "Array:"; echo "${fileMenuAsArray[@]}" # debug
+            else
+                _log_status_end nok "An error was encountered while checking out file from head"
+            fi
+            Input__pressToContinue
+            Term__clear $(($nbLinesShift+1))
+            if [ $cnt -eq 0 ] ; then
+                #Sys__pool_sweepall Arcv__threadPool
+                return 0
+            fi
+        else
+            local diffcmd=()
+            if which meld &>/dev/null && ! $useDiffInsteadOfMeld ; then
+                diffcmd+=("avmeldwrapper")
+                diffcmd+=("meld")
+                diffcmd+=("$currentSourceFile")
+                diffcmd+=("${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}/${fileMenuAsArray[$fIndex]}")
+            else
+                local popupTermArgs=""
+                # 16/08: force using xterm
+:<<'EOF'
+                if which gnome-terminal &>/dev/null; then
+                    YAML__get ".diff-popup-gnometerminal-args" popupTermArgs
+                    diffcmd="gnome-terminal ${popupTermArgs}"
+                else
+EOF
+                YAML__get ".diff-popup-xterm-args" popupTermArgs
+                diffcmd+=("xterm")
+                local popupTermArgsAsArray=($popupTermArgs)
+                Array__concat diffcmd popupTermArgsAsArray
+                diffcmd+=("avlesswrapper")
+
+                local useDiff=false
+                if ! which git &>/dev/null ; then
+                    local gitdiffArgs
+                    YAML__get ".git-diff-args" gitdiffArgs
+                    local gitdiffArgsAsArray=($gitdiffArgs)
+                    diffcmd+=("git")
+                    diffcmd+=("diff")
+                    Array__concat diffcmd gitdiffArgsAsArray
+                else
+                    useDiff=true
+                    local diffArgs
+                    YAML__get ".diff-diff-args" diffArgs
+                    local diffArgsAsArray=($diffArgs)
+                    #diffcmd+="diff $diffArgs"
+                    diffcmd+=("diff")
+                    Array__concat diffcmd diffArgsAsArray
+
+                fi
+                diffcmd+=("${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}/${fileMenuAsArray[$fIndex]}")
+                diffcmd+=("${currentSourceFile}")
+            fi
+            Sys__pool_spawn Arcv__threadPool "${diffcmd[@]}" &>/dev/null
+       fi
+
+        Term__moveTo $(( ${nbLinesShift} + 1)) 0
     done
     echo
+    #Sys__pool_sweepall Arcv__threadPool &>/dev/null
+}
+
+
+:<<'EOF'
+EOF
+Arcv__listFilesForPermissionChangeCheck() { 
+    local __inFolder="$1"
+    local -n __inExplicitFiles="$2" # relative to inFolder
+    local -n __outLsData=$3
+
+    local lsForPermCheck
+    if pushd "${__inFolder}" &>/dev/null ; then    
+        local lsForPermCheckCmdBase="ls -gGA -d -p --time-style=+'%s' -Q"
+        local lsForPermCheckCmd="${lsForPermCheckCmdBase}"
+        lsForPermCheckCmd="ls -gGA -d -p --time-style=+'%s' -Q"
+        local explFile=""
+        for explFile in "${__inExplicitFiles[@]}" ; do
+            lsForPermCheckCmd+=" '${explFile}'"
+        done
+        
+        local lsForDirPermCheckCmd="find . -type d -exec ${lsForPermCheckCmdBase} {} \;"
+
+        local lsFileEntries="$(eval "${lsForPermCheckCmd}")"
+        local lsDirEntries="$(eval "${lsForDirPermCheckCmd}")"
+
+        #echo "${lsFileEntries} ${lsDirEntries}"
+        #_log_vars lsFileEntries 
+        #_log_vars lsDirEntries
+
+#/[^\/]$/
+        lsForPermCheck=$(echo "${lsFileEntries}
+${lsDirEntries}" | awk '
+function startsWith(s,starts) { pat="^"starts; if (length(starts)==0) return 0 ; else return (match(s,pat)!=0); }
+BEGIN {
+  curdir=""
+}
+{  
+    if (NF < 5) { printf("ERROR '%s'",$0) ; exit(0) }
+    printf("%s ",$1); # Perm
+    if (length(curdir) > 0)
+        printf("%s/%s ",curdir,$5); # Fullpath
+    else
+        printf("%s ",$5); # Fullpath
+    printf("\n"); 
+} 
+')
+        popd &>/dev/null
+        __outLsData="$lsForPermCheck"
+    else
+        __outLsData=""
+    fi
+}
+
+
+Arcv__listPermissionChanges() {
+    local title="$1"
+    local -n automaticLog=$2
+    local -n __inSameFiles=$3
+    local -n __inPermissionOnlyChangeFiles=$4
+    local sameFileLsData="0"
+
+    Arcv__listFilesForPermissionChangeCheck "${ARCV__VARS["backupsrc"]}" sameFilesBasenames sameFileLsData
+    #_log_vars sameFileLsData
+
+    local headSrcDir
+    local sameFileLsInHeadData="0"
+
+    Arcv__getInfo "head-image-dir" headSrcDir
+    Arcv__listFilesForPermissionChangeCheck "${headSrcDir}" sameFilesBasenames sameFileLsInHeadData     
+    #_log_vars sameFileLsInHeadData
+
+    local diffLinesNum=()
+    local diffLines1=()
+    local diffLines2=()
+    Str__getDiffLines "$sameFileLsData" "$sameFileLsInHeadData" diffLinesNum diffLines1 diffLines2
+    
+    if _debugging ; then
+        _log_vars sameFileLsData
+        _log_vars sameFileLsInHeadData
+        Array__print diffLinesNum ";"
+        echo && echo diffLines1
+        Array__print diffLines1 "
+"
+        echo && echo diffLines2
+        Array__print diffLines2 "
+"
+    fi
+
+    if [ ${#diffLinesNum} -gt 0 ] ;  then
+        echo
+        _colorText "${title}:" "underline" && echo
+
+        local newAutoLog="${title}: " 
+        if [ -z "${automaticLog}" ] ; then
+            automaticLog="${newAutoLog}"
+        else
+            automaticLog="${automaticLog}. ${newAutoLog}"
+        fi
+
+        _foreach2 diffLines1 diffLines2 Arcv__listPermissionChange "${!automaticLog}" "${!__inPermissionOnlyChangeFiles}"
+
+        if [ ${#__inPermissionOnlyChangeFiles} -eq 0 ] ; then
+            Term__moveCursorUp 1
+            Term__eraseLines 1
+            Term__moveCursorUp 1
+        fi
+    fi
+}
+
+Arcv__listPermissionChange() {
+    local idx="$1"
+    local diffLines1Item="$2"
+    local diffLines2Item="$3"
+    local -n automaticLogPerm=$4
+    local -n __inPermissionOnlyChangeFilesPerm=$5
+
+    #_log_vars diffLines1Item diffLines2Item
+    local file1="$(echo "$diffLines1Item"|awk ' {
+        for (i=2 ; i <= NF; i++) printf("%s",$i);
+}')"
+
+    # This is to remove the surrounding double quotes
+    Str__trimEnd "$file1" file1 "/"
+    file1="${file1:1:$(( ${#file1} -2 )) }"
+
+
+    # This can happen as a result returned by find
+    # Only changes of the source dir content are relevant, 
+    # Not itself.
+    if [ "$file1" = "." ] ; then
+        return 0
+    fi
+
+    local perm1="$(echo "$diffLines1Item"|awk ' {
+        printf("%s",$1);
+}')"
+    local perm2="$(echo "$diffLines2Item"|awk ' {
+        printf("%s",$1);
+}')"
+
+    # Handle special flags handling
+    local ignSpecFlags=false
+    YAML__get_bool ".ignore-special-perm-bits" ignSpecFlags true
+    if $ignSpecFlags ; then
+        if [ "${#perm1}" -ge 11 ] ; then
+            perm1="${perm1:0:10}"
+        fi
+        if [ "${#perm2}" -ge 11 ] ; then
+            perm2="${perm2:0:10}"
+        fi
+    fi
+
+    # Only check 
+    if [ "$perm1" != "$perm2" ] && ! Str__isEmpty "$perm1" && ! Str__isEmpty "$perm2" ; then
+        printf "  %s : %s changed to %s" "$file1" "$perm2" "$perm1"
+        echo
+
+        automaticLogPerm="${automaticLogPerm} $file1 "
+        __inPermissionOnlyChangeFilesPerm+=("$file1")
+    fi
 }
 
 Arcv__listExcludedFilePatterns() {
+    local title="$1"
+    local -n automaticLog=$2
+
     if ! ${ARCV__VARS["silent"]} ; then 
         if [ ! -z "${ARCV__VARS["excluded_file_patterns"]}" ] ; then
             echo
-            _colorText "New excluded file patterns:" "white_underline" && echo
+            _colorText "${title}:" "underline" && echo
             local allExcl="$(Arcv__priv_addEXCLUDE "" "${ARCV__VARS["excluded_file_patterns"]}" true)"
             Str__indent 2 allExcl
             printf "%s" "${allExcl}"
             echo
+
+            local newAutoLog="${title}: ${allExcl}" 
+            if [ -z "${automaticLog}" ] ; then
+                automaticLog="${newAutoLog}"
+            else
+                automaticLog="${automaticLog}. ${newAutoLog}"
+            fi
         fi
     fi
 }
@@ -2434,7 +3431,7 @@ Arcv__listCommitFiles() {
 
     _log_ifnot ${ARCV__VARS["silent"]} ""
     if ! ${ARCV__VARS["silent"]} ; then 
-        _colorText "${title}:" "white_underline" && echo
+        _colorText "${title}:" "underline" && echo
     fi
 
     local newAutoLog="${newAutoLog}${title}:" 
@@ -2443,8 +3440,14 @@ Arcv__listCommitFiles() {
         Str__trim "${aDiffedFile}" aDiffedFile
         if [ ! -z "${aDiffedFile}" ] ; then
             #_log_vars aDiffedFile referentSourceDir
-            local __relPathDiffFile="$(realpath --relative-to "${referentSourceDir}" "${aDiffedFile}")"
-            _log_ifnot ${ARCV__VARS["silent"]} "  ${__relPathDiffFile}"
+            local __relPathDiffFile="$(realpath -m --relative-to "${referentSourceDir}" "${aDiffedFile}")"
+            if [ -L "${aDiffedFile}" ] ; then
+                __relPathDiffFile="${aDiffedFile}"
+                local __relPathDiffFileSymTarget="$(realpath -s -m --relative-to "${referentSourceDir}" "${aDiffedFile}")"
+                _log_ifnot ${ARCV__VARS["silent"]} "  ${__relPathDiffFileSymTarget} -> ${__relPathDiffFile}"
+            else
+                _log_ifnot ${ARCV__VARS["silent"]} "  ${__relPathDiffFile}"
+            fi
 
             newAutoLog="${newAutoLog} ${__relPathDiffFile}"
 
@@ -2576,6 +3579,16 @@ Arcv__priv_addEXCLUDE()
     done
 }
 
+Arcv__setExplicitSource()
+{
+    # If explicit source is set, the value ARCV__VARS["backupsrc"] is set to ./ARCV__VARS["explicit_backupsrc"]
+    local __cwd=""
+    File__cwd __cwd
+    local __explicitSource="$1"
+    ARCV__VARS["backupsrcBasename"]="${__explicitSource}"
+    ARCV__VARS["backupsrc"]="${__cwd}/${ARCV__VARS["backupsrcBasename"]}"
+}
+
 Arcv__getInfo()
 {
     local -n __outInfoValue=$2
@@ -2583,6 +3596,11 @@ Arcv__getInfo()
     Arcv__getMatchInfo "$1" "${!__outInfoValue}" __outDummyInfoNames
 }
 
+:<<'EOF'
+Returns all found information which name contains the passed keyword
+Note: an info name shall never be contained in another one. All keys must enable to uniquely retrieve the value when using the full key name.
+@param[1]
+EOF
 Arcv__getMatchInfo()
 {
     local __inInfoName="$1"
@@ -2592,8 +3610,23 @@ Arcv__getMatchInfo()
 
     __outInfoValue=()
     __outInfoNames=()
+
+    if Str__contains "latest-release-tag" "${__inInfoName}"  ; then
+        local latestTag=""
+        Arcv__getInfoLatestReleaseTag latestTag
+        __outInfoValue+=("${latestTag}")
+        __outInfoNames+=("latest-release-tag")
+    fi
+
+    if Str__contains "latest-release-rev" "${__inInfoName}"  ; then
+        local latestRev=""
+        Arcv__getInfoLatestReleaseTagRevision latestRev
+        __outInfoValue+=("${latestRev}")
+        __outInfoNames+=("latest-release-rev")
+    fi
+
     if Str__contains "releases" "${__inInfoName}"  ; then
-        __outInfoValue+=("$(Arcv__showReleaseHistory false)")
+        __outInfoValue+=("$(Arcv__showReleaseHistory false plain)")
         __outInfoNames+=("releases")
     fi
 
@@ -2608,18 +3641,25 @@ Arcv__getMatchInfo()
     fi
 
     if Str__contains "rev-dir" "${__inInfoName}" ; then
-        __outInfoValue+=("${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive$(arcv rev)/")
+        __outInfoValue+=("${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive$(arcv rev)")
         __outInfoNames+=("rev-dir")
     fi
 
     if Str__contains "src-dir" "${__inInfoName}" ; then
-        __outInfoValue+=("${ARCV__VARS["backupapptarget"]}/")
+        local __rootDir=""
+        Arcv__getInfoAppArchiveRootDirPath __rootDir
+        __outInfoValue+=("${__rootDir}/")
         __outInfoNames+=("src-dir")
     fi
 
     if Str__contains "head-dir" "${__inInfoName}" ; then
         __outInfoValue+=("${ARCV__VARS["backupapptarget"]}/head")
         __outInfoNames+=("head-dir")
+    fi
+    
+    if Str__contains "head-image-dir" "${__inInfoName}" ; then
+        __outInfoValue+=("${ARCV__VARS["backupapptarget"]}/head/${ARCV__VARS["backupsrcBasename"]}")
+        __outInfoNames+=("head-image-dir")
     fi
 
     if Str__contains "git-repo" "${__inInfoName}" ; then
@@ -2631,8 +3671,9 @@ Arcv__getMatchInfo()
     fi
     
     if Str__contains "exclude-file" "${__inInfoName}" ; then
-        local __excludeFile="${ARCV__VARS["backupapptarget"]}/EXCLUDE"
-        if [ ! -f "${__excludeFile}" ] ; then
+        local __excludeFile=""
+        Arcv__getInfoAppExcludeFilePath __excludeFile
+        if ! File__fileExists "${__excludeFile}" ; then
             Arcv__priv_setupEXCLUDE "${__excludeFile}" "" false
         fi
         __outInfoValue+=("${__excludeFile}")
@@ -2650,7 +3691,214 @@ Arcv__getMatchInfo()
         __outInfoValue+=("$xFileContent")
         __outInfoNames+=("exclusions")
     fi
+
+    if Str__contains "rev-hashfilepath" "${__inInfoName}" ; then
+        local _hashFilename
+        Arcv__getInfoHashFilename _hashFilename
+
+        __outInfoValue+=("${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive$(arcv rev)/${_hashFilename}")
+        __outInfoNames+=("rev-hashfilepath")
+    fi
+
+    if Str__contains "rev-hashfilename" "${__inInfoName}" ; then
+        local _hashFilename
+        Arcv__getInfoHashFilename _hashFilename
+        __outInfoValue+=("${_hashFilename}")
+        __outInfoNames+=("rev-hashfilename")
+    fi    
+
     return 0
+}
+
+:<<'EOF'
+Returns root archive folder of the current source in the repository
+@param[1] ref to the var used to store the returned value
+preconditions: ARCV__VARS["backuptarget"] and ARCV__VARS["backupsrcBasename"] must have been defined
+EOF
+Arcv__getInfoAppArchiveRootDirPath()
+{
+    local -n __outPath=$1
+    __outPath="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive"
+}
+
+:<<'EOF'
+Returns exclude file path of the current source in the repository
+@param[1] ref to the var used to store the returned value
+preconditions: ARCV__VARS["backuptarget"] and ARCV__VARS["backupsrcBasename"] must have been defined
+EOF
+Arcv__getInfoAppExcludeFilePath()
+{
+    local __rootDir=""
+    Arcv__getInfoAppArchiveRootDirPath __rootDir
+    local -n __outPath=$1
+    __outPath="${__rootDir}/EXCLUDE"
+}
+
+
+:<<'EOF'
+Returns the basename of the SHA256 hash file in the repository, either for the current working directory under revision control and or an explicit source given as argument
+@param[1] ref to the var used to store the returned value
+@param[2] in optional the name of the source folder 
+EOF
+Arcv__getInfoHashFilename()
+{
+    local -n __outHashFilename=$1
+    local shafullpath_srcEscaped
+
+    if [ $# -ge 2 ] ; then
+        Arcv__getEscapedSrcBasenameForSrc "$2" shafullpath_srcEscaped
+    else
+        Arcv__getEscapedSrcBasename shafullpath_srcEscaped
+    fi
+    __outHashFilename="._arcv_sha256_${shafullpath_srcEscaped}"
+}
+
+:<<'EOF'
+Returns the path to the root directory of the current source relatively to the current working directory.
+@param[1] ref to the var used to store the returned value
+EOF
+Arcv__getInfoSrcRootDirRelPath()
+{
+    local -n __outRelPath=$1
+    __outRelPath="$(realpath -m --relative-to "${ARCV__VARS["backupsrc"]}" "$PWD")"
+}
+
+:<<'EOF'
+Returns the revision of the passed release tag
+@param[1] release tag
+@param[2] ref to the var used to store the returned value
+Return 1 if invalid release tag specified (no revision number found)
+EOF
+
+Arcv__getInfoReleaseTagRevision()
+{
+    local __inTag="$1"
+    local -n __outRev=$2
+    local __tagRev=""
+    read __tagRev < <(Arcv__showReleaseHistory false plain | awk -F' ' -v TAG="${__inTag}" '
+{ 
+        if ($1 == TAG) {
+            printf("%s",$2);
+        }
+}')
+    __outRev="${__tagRev}"
+    if Str__isEmpty "${__tagRev}" ;  then 
+        return 1
+    fi
+}
+
+
+:<<'EOF'
+Returns the revision of the latest release tag
+@param[1] release tag
+@param[2] ref to the var used to store the returned value
+Return 1 if invalid release tag specified (no revision number found)
+EOF
+
+Arcv__getInfoLatestReleaseTagRevision()
+{
+    local -n __outRev=$1
+    local tagRev=""
+    local relhistory="$(Arcv__showReleaseHistory false plain)"
+    read tagRev < <(echo "${relhistory}" | head -n1)
+    if Str__startsWith "$tagRev" "No release" ; then
+        __outRev=""
+        return 1
+    else        
+        __outRev="$(echo "$tagRev" | awk -F' '  '{ printf("%s",$2); }' )"
+    fi
+}
+
+:<<'EOF'
+Returns the latest release tag
+@param[1] release tag
+@param[2] ref to the var used to store the returned value, empty when no release tag exists
+EOF
+
+Arcv__getInfoLatestReleaseTag()
+{
+    local -n __outRev=$1
+    local tagRev=""
+    local relhistory="$(Arcv__showReleaseHistory false plain)"
+    read tagRev < <(echo "${relhistory}" | head -n1)
+    if Str__startsWith "$tagRev" "No release" ; then
+        __outRev=""
+        return 1
+    else        
+        __outRev="$(echo "$tagRev" | awk -F' '  '{ printf("%s",$1); }' )"
+    fi
+}
+
+
+:<<'EOF'
+Returns the path of the passed file relatively to the root directory of the current source according to the current working directory.
+@param[1] name of file in current work dir or relative path to it
+@param[2] ref to the var used to store the returned value
+EOF
+Arcv__getInfoSourceFileRelPath()
+{
+    local -n __outRelFilePath=$2
+    local relSrcRootDir=""
+    Arcv__getInfoSrcRootDirRelPath relSrcRootDir
+    __outRelFilePath="${relSrcRootDir}/$1"
+}
+
+
+:<<'EOF'
+Converts --from and --to arguments to actual revision numbers, ensuring to return the revision number for a tag
+@param[1] in from revision number argument
+@param[2] in to revision number argument
+@param[3] out numeric from revision number
+@param[4] out numeric to revision number
+Return 1 on invalid or inconsistent input values
+EOF
+
+Arcv__resolveFromToRevision()
+{
+    local __inCurrentVersion="$1"
+    local __inFromVersion="$2"
+    local __inToVersion="$3"
+    local -n __outFromVersion=$4
+    local -n __outToVersion=$5
+
+
+    if ! Str__isEmpty "${__inFromVersion}" ; then
+        if Int__isInt "${__inFromVersion}" ; then
+            __outFromVersion=${__inFromVersion}
+        else
+            if ! Arcv__getInfoReleaseTagRevision "${__inFromVersion}" "${!__outFromVersion}" ; then
+                _log_err "'${__inFromVersion}' is either an invalid revision number or an invalid release tag"
+                return 1
+            fi
+        fi
+    fi
+
+    if ! Str__isEmpty "${__inToVersion}" ; then
+        if Int__isInt "${__inToVersion}" ; then
+            __outToVersion=${__inToVersion} 
+        else
+            if ! Arcv__getInfoReleaseTagRevision "${__inToVersion}" "${!__outToVersion}" ; then
+                _log_err "'${__inToVersion}' is either an invalid revision number or an invalid release tag"
+                return 1
+            fi
+        fi
+    fi
+
+    # Consistency checks
+    if [ ${__outToVersion} -gt ${__outFromVersion} ] ; then
+        _log_err "The specified most recent start revision ${__inFromVersion} ($__outFromVersion) is inferior to the specific end revision ${__inToVersion} ($__outToVersion)"
+        return 1
+    fi
+
+    if [ ${__outFromVersion} -gt ${__inCurrentVersion} ] ; then
+        _log_err "The specified most recent start revision ${__inFromVersion} ($__outFromVersion) is superior to the head revision ${__inCurrentVersion}"
+        return 1
+    fi
+
+    if [ ${__outToVersion} -gt ${__inCurrentVersion} ] ; then
+        _log_err "The specified oldest end revision ${__inToVersion} ($__outToVersion) is superior to the head revision ${__inCurrentVersion}"
+        return 1
+    fi
 }
 
 Arcv__displayInfo()
@@ -2678,7 +3926,7 @@ Arcv__displayInfo()
 
             if ! ${__singleInfo} ; then
                 #_colorText "$(Str__padded "${__infoName}" 50)" white blue
-                _colorText "${__infoName}" white_underline
+                _colorText "${__infoName}" underline
                 #_colorText "${__infoName}" white blue
                 echo
             fi
@@ -2752,6 +4000,9 @@ Arcv__main() {
     _loadDep "rsync"                        # awk
     _loadDep "coreutils"                    # sha256sum
     _loadDep "iproute2"
+    _loadDep "diffutils"                    # diff is mandatory currently
+
+    Sys__pool_init Arcv__threadPool "arcv_processes" 1000
 
     if ! _parseArgs "${allargs[@]}" ; then
             _exit -1 "Failed to parse arguments"
@@ -2794,7 +4045,16 @@ EOF
 		_exit -1 "Arcv configuration file '${ARCV__VARS["ARCV_CONFIG"]}' does not exist. Aborted."
 	fi
 
-    YAML__setFile "${ARCV__VARS["ARCV_CONFIG"]}" true # true = read all and put in global yaml data map
+    # true = read all and put in global yaml data map
+    YAML__setFile "${ARCV__VARS["ARCV_CONFIG"]}" true 
+    local subprocOverrideParam=false
+
+    # Read subproc param which can override the one of the main config
+    YAML__get ".subproc" subprocOverrideParam true
+    if ${ARCV__VARS["subproc"]} || ${subprocOverrideParam} ; then
+        ARCV__VARS["subproc"]=true
+    fi
+
     local copy_cmd
     YAML__get ".copy-cmd" copy_cmd
     ARCV__VARS["copy"]="${copy_cmd}"
@@ -2808,28 +4068,18 @@ EOF
     YAML__get ".exclude[]" excludedFiles
     #_log "exclude: ${excludedFiles[@]} ${#excludedFiles[@]}"
 
+    YAML__get ".paging" ARCV__VARS["paging"]
+
     Arcv__resolveStoragePath storage
+
+    # Option consistency
+    if ${ARCV__VARS["check-in-list-only"]} && ! ${ARCV__VARS["checkin"]} ; then
+        _exit 201 "-l option only allowed for check-in"
+    fi
 
     # The list operation can and must be executed here immediately
     if ${ARCV__VARS["list"]} ; then
         Arcv__listSources "${ARCV__VARS["backuptarget"]}"
-        return 0
-    fi
-
-    if ${ARCV__VARS["hash"]} && ! Str__isEmpty ${ARCV__VARS["hash_folder"]} ; then
-        local dirHash=""
-        if ! File__dirSHA256 "${ARCV__VARS["hash_folder"]}" dirHash ; then
-            _exit -80 "Failed to compute hash for path '${ARCV__VARS["hash_folder"]}'"
-        fi
-
-        # The hash of the head is stored in the last committed archive folder, not 
-        # below head/
-        if ${ARCV__VARS["verbose"]} ; then
-            echo ""
-            echo "Hash signature for $(realpath "${ARCV__VARS["hash_folder"]}") :"
-        fi
-        echo "${dirHash}"
-
         return 0
     fi
 
@@ -2841,9 +4091,7 @@ EOF
     elif [ -z "${ARCV__VARS["backupsrc"]}" ] ; then
 
         if [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
-            # If explicit source is set, the value ARCV__VARS["backupsrc"] is set to ./ARCV__VARS["explicit_backupsrc"]
-            File__cwd ARCV__VARS["backupsrc"]
-            ARCV__VARS["backupsrc"]="${ARCV__VARS["backupsrc"]}/${ARCV__VARS["explicit_backupsrc"]}"
+            Arcv__setExplicitSource "${ARCV__VARS["explicit_backupsrc"]}"
         else
             File__cwd ARCV__VARS["backupsrc"]
             if [ $? -ne 0 ] ; then
@@ -2852,8 +4100,8 @@ EOF
         fi
     fi
 
-    if [ -z "${ARCV__VARS["checkout"]}" ] && [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
-        _exit -10 "--source is only valid for a checkout operation"
+    if ([ -z "${ARCV__VARS["checkout"]}" ] && Str__isEmpty ${ARCV__VARS["hash_folder"]}) && [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
+        _exit -10 "--source is only valid for a checkout operation or explicit folder SHA256 computation"
     fi
 
     # Create new archive directory if it does not exist
@@ -2863,94 +4111,111 @@ EOF
     #echo "originbackupSrc : '$originbackupSrc' '${ARCV__VARS["backupsrcBasename"]}' '${ARCV__VARS["backupsrc"]}'" >&2
     local repoNewlyCreated=false
 
-    local arcRootResolved=false
-    while ! $arcRootResolved ; do
-    if ! Arcv__checkRootDir ; then
+    ARCV__VARS["root-resolved"]=false    
+    
+    while ! ${ARCV__VARS["root-resolved"]} ; do
+    
+        if ! Arcv__checkRootDir ; then
 
-        if [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
-            echo
-            _log_err "The source '${ARCV__VARS["explicit_backupsrc"]}' does not exist in the repository '${ARCV__VARS["backuptarget"]}'"
-            echo
-            _log "The available sources are:"
-            echo
-            Arcv__listSources "${ARCV__VARS["backuptarget"]}"
-            echo
-
-            _quit ""
-        fi
-        
-        # If there is no repository for the specified directory, 
-        # we demand if it has to be created
-
-        if ${ARCV__VARS["revisionlog"]} || ${ARCV__VARS["releaselog"]} ; then
-            _exit -1 "'$originbackupSrc' is currently not under version control. To create it, just type 'av'"
-        fi
-
-        ARCV__VARS["backupapptarget"]="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive"
-        
-        if [ ! -d "${ARCV__VARS["backupapptarget"]}" ] ; then
-            if ! ${ARCV__VARS["silent"]} ; then
-                _log_warn "An archive repository does not exist yet for source folder '${ARCV__VARS["backupsrc"]}'."
-            fi            
-
-            # If no valid root file was found and this is not a checkin operation
-            # then exit with an error, operation is not possible
+            # If the source dir in the repo could not be resolved and this 
+            # is not a checking operation, then exit immediately.
             if ! ${ARCV__VARS["checkin"]} ; then
-                _exit -56 "Further operation is impossible. Aborted."
+                break
             fi
 
-            Input__confirm_high "Do you want to create a new archive repository for folder '${ARCV__VARS["backupsrcBasename"]}' (target archive: ${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive) ?" || _exit -1 "Aborted"
-            echo
-
-            mkdir -p "${ARCV__VARS["backupapptarget"]}" || _exit -1 "Failed to create folder '${ARCV__VARS["backupapptarget"]}'"
-
-            # Manage excluded file patterns
-            Arcv__setupEXCLUDE "${ARCV__VARS["excluded_file_patterns"]}"
-
-            #exit 0 # DEBUG
-
-            Arcv__createROOT "${ARCV__VARS["storageViaNfs"]}"
-
-            ARCV__VARS["headversion"]="${ARCV__VARS["backupapptarget"]}/head"
-            mkdir -p "${ARCV__VARS["headversion"]}" 
-            #echo "0" > "${ARCV__VARS["headversion"]}/REV"
-
-            ARCV__VARS["droppedsrc"]="${ARCV__VARS["backupapptarget"]}/dropped"
-            mkdir -p "${ARCV__VARS["droppedsrc"]}" 
-            repoNewlyCreated=true
-            arcRootResolved=true
-        else
-            if ${ARCV__VARS["rev"]} || ${ARCV__VARS["hash"]} || ${ARCV__VARS["repo_info"]} ; then 
-                # Asking rev number whilst root couldn't be determined
-                # This is an error case
-                _exit -55 "Failed to get revision. Folder may not be under revision control or the repository git corrupted."
-            else
-                # rev command may be called immediately after the above folder creation
-                # but REV is not yet initialized nor the archive revision subfolders
-                _log_warn "
-        The archive folder '${ARCV__VARS["backupapptarget"]}' exists.
-        But ${ARCV__VARS["backupsrc"]} on ${ARCV__VARS["localHostName"]}/${ARCV__VARS["localHostMAC"]} is not registered as a valid source folder. 
-        Continue only if you're 100% it is inline with the repository!
-        Possible data losses!
-"
-                if ! Input__confirm_high "Do you want to register as source folder from this host?" ; then                 
-                    _exit -1 "Aborted"
-                fi
+            if [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
                 echo
-                Arcv__registerSource 
+                _log_err "The source '${ARCV__VARS["explicit_backupsrc"]}' does not exist in the repository '${ARCV__VARS["backuptarget"]}'"
+                echo
+                _log "The available sources are:"
+                echo
+                Arcv__listSources "${ARCV__VARS["backuptarget"]}"
+                echo
+
+                _quit ""
             fi
-        fi
-    else
-        ARCV__VARS["backupapptarget"]="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive"
-        if [ -f "${ARCV__VARS["backupapptarget"]}/EXCLUDE" ] ; then
-            ARCV__VARS["backupapptargetexcludefile"]="${ARCV__VARS["backupapptarget"]}/EXCLUDE"
-        fi
+            
+            # If there is no repository for the specified directory, 
+            # we demand if it has to be created
 
-        _log_dbg "repo ROOT FOUND: backupsrc=${ARCV__VARS["backupsrc"]}, ROOT file: ${ARCV__VARS["backupapptargetrootfile"]}, backupapptarget=${ARCV__VARS["backupapptarget"]}"
+            if ${ARCV__VARS["revisionlog"]} || ${ARCV__VARS["releaselog"]} ; then
+                _exit -1 "'$originbackupSrc' is currently not under version control. To create it, just type 'av'"
+            fi
 
-        arcRootResolved=true
-    fi
+            Arcv__getInfoAppArchiveRootDirPath ARCV__VARS["backupapptarget"]      
+            
+            if [ ! -d "${ARCV__VARS["backupapptarget"]}" ] ; then
+                if ! ${ARCV__VARS["silent"]} ; then
+                    _log_warn "An archive repository does not exist yet for source folder '${ARCV__VARS["backupsrc"]}'."
+                fi            
+
+                # If no valid root file was found and this is not a checkin operation
+                # then exit with an error, operation is not possible
+                if ! ${ARCV__VARS["checkin"]} ; then
+                    _exit -56 "Further operation is impossible. Aborted."
+                fi
+
+                Input__confirm_high "Do you want to create a new archive repository for folder '${ARCV__VARS["backupsrcBasename"]}' (target archive: ${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive) ?" || _exit -1 "Aborted"
+                echo
+
+                mkdir -p "${ARCV__VARS["backupapptarget"]}" || _exit -1 "Failed to create folder '${ARCV__VARS["backupapptarget"]}'"
+
+                # Manage excluded file patterns
+                Arcv__setupEXCLUDE "${ARCV__VARS["excluded_file_patterns"]}"
+
+                #exit 0 # DEBUG
+
+                Arcv__createROOT "${ARCV__VARS["storageViaNfs"]}"
+
+                ARCV__VARS["headversion"]="${ARCV__VARS["backupapptarget"]}/head"
+                mkdir -p "${ARCV__VARS["headversion"]}" 
+                echo "0" > "${ARCV__VARS["headversion"]}/REV"
+
+                ARCV__VARS["droppedsrc"]="${ARCV__VARS["backupapptarget"]}/dropped"
+                mkdir -p "${ARCV__VARS["droppedsrc"]}" 
+                repoNewlyCreated=true
+                ARCV__VARS["root-resolved"]=true
+
+            else
+            
+                if ${ARCV__VARS["rev"]} || ${ARCV__VARS["hash"]} || ${ARCV__VARS["repo_info"]} ; then 
+                    # Asking rev number whilst root couldn't be determined
+                    # This is an error case
+                    _exit -55 "Failed to get revision. Folder may not be under revision control or the repository git corrupted."
+                else
+                    # rev command may be called immediately after the above folder creation
+                    # but REV is not yet initialized nor the archive revision subfolders
+                    _log_warn "
+            The archive folder '${ARCV__VARS["backupapptarget"]}' exists.
+            But ${ARCV__VARS["backupsrc"]} on ${ARCV__VARS["localHostName"]}/${ARCV__VARS["localHostMAC"]} is not registered as a valid source folder. 
+            Continue only if you're 100% it is inline with the repository!
+            Possible data losses!
+    "
+                    if ! Input__confirm_high "Do you want to register as source folder from this host?" ; then                 
+                        _exit -1 "Aborted"
+                    fi
+                    echo
+                    Arcv__registerSource 
+                fi
+            fi
+        else
+            ARCV__VARS["backupapptarget"]="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive"
+            if [ -f "${ARCV__VARS["backupapptarget"]}/EXCLUDE" ] ; then
+                ARCV__VARS["backupapptargetexcludefile"]="${ARCV__VARS["backupapptarget"]}/EXCLUDE"
+            fi
+
+            _log_dbg "repo ROOT FOUND: backupsrc=${ARCV__VARS["backupsrc"]}, ROOT file: ${ARCV__VARS["backupapptargetrootfile"]}, backupapptarget=${ARCV__VARS["backupapptarget"]}"
+
+            ARCV__VARS["root-resolved"]=true
+        fi
     done
+
+
+    if ${ARCV__VARS["hash"]} && ! Str__isEmpty ${ARCV__VARS["hash_folder"]} ; then
+        Arcv__showFolderSHA256 "${ARCV__VARS["hash_folder"]}"
+        return $?
+    fi
+
 
     local arcVersion=0
     lastBackupappversiontarget=""
@@ -3040,12 +4305,16 @@ EOF
             done
         fi
 
+    elif ! ${ARCV__VARS["root-resolved"]} ; then
+        _exit -1 "$(basename "$PWD") is not under revision control. No entry found in repository ${ARCV__VARS["backuptarget"]}."
     else
         if [ "${ARCV__VARS["diff_rev"]}" = "current" ] ;  then
+
             # This will point to the parent folder of the current source
             ARCV__VARS["backupappversiontarget"]="$(dirname "${ARCV__VARS["backupsrc"]}")"
             #_log "diff_rev backupsrc: '${ARCV__VARS["backupsrc"]}' "
         else
+
             if [ "${ARCV__VARS["diff_rev"]}" = "head" ] ;  then
                 : # let arcVersion unchanged, already pointing to head
             elif Int__isInt "${ARCV__VARS["diff_rev"]}" ; then
@@ -3057,7 +4326,6 @@ EOF
             #_log "backupapptarget: '${ARCV__VARS["backupapptarget"]}' '$arcVersion'"
             ARCV__VARS["backupappversiontarget"]="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${arcVersion}"
         fi
-
         if [ ! -d "${ARCV__VARS["backupappversiontarget"]}" ] ; then 
                 _exit -6 "Revision ${arcVersion} does not exist."
                 #_exit -6 "Revision ${arcVersion} does not exist (no folder ${ARCV__VARS["backupappversiontarget"]}) ! The repository may be corrupted. "
@@ -3111,12 +4379,13 @@ EOF
 
     local checkRes=0
     local sha256
+    local sha256Data
     local lastSha256
 
     # For a checkout of an explicit source no SHA256 needs to be computed and crosschecked
     # This also avoid to get a warning regarding ARCV__VARS["backupsrc"]
     if [ -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
-        Arcv__compAndCheckSourceSHA256 "${lastBackupappversiontarget}" sha256 lastSha256
+        Arcv__compAndCheckSourceSHA256 "${lastBackupappversiontarget}" sha256 lastSha256 sha256Data
         checkRes=$?
     fi
 
@@ -3131,6 +4400,10 @@ EOF
     if ${ARCV__VARS["checkin"]} ; then
         # Announcement
         if (! ${ARCV__VARS["rev"]} && ! ${ARCV__VARS["hash"]} && ! ${ARCV__VARS["repo_info"]} ) || ${ARCV__VARS["verbose"]} ; then
+            if [ $checkRes -ne 0 ] && ! ${ARCV__VARS["checkformodif"]} && ! ${ARCV__VARS["subproc"]}; then        
+                Term__clear                    
+            fi
+
             _log_high "SRC: ${ARCV__VARS["backupsrc"]}"
             local lastVerMsg;
             if [ $arcVersion -eq 0 ] ; then
@@ -3144,7 +4417,7 @@ EOF
                 local category
                 if [ $checkRes -eq 0 ] ; then
                     category=$(_colorText "No change in source" "white_reverse")
-                else
+                else                
                     category=$(_colorText "Source changed according to new hash $sha256" "yellow_reverse")
                 fi
                 #_log_high "$category for folder '${ARCV__VARS["backupsrc"]}'"
@@ -3152,7 +4425,7 @@ EOF
             fi
         fi
     else
-        if ${ARCV__VARS["diff"]} || ${ARCV__VARS["meld"]} || ${ARCV__VARS["publish"]} ; then
+        if ${ARCV__VARS["diff"]} || ${ARCV__VARS["meld"]} || (${ARCV__VARS["publish"]} && [ -z "${ARCV__VARS["publish-tag"]}" ] ); then
             _log_high "SRC: ${ARCV__VARS["backupsrc"]}"
             lastVerMsg=$(_colorText "${ARCV__VARS["backupsrcBasename"]} last archived version is $arcVersion hash $sha256" "white_reverse")
             _log_high "$lastVerMsg"            
@@ -3172,115 +4445,76 @@ EOF
     # Actual command execution
     #
     if ${ARCV__VARS["revisionlog"]} ; then
-        if [ -z "${ARCV__VARS["revisionlog_file"]}" ] ; then
-            Arcv__showHistory $arcVersion
+        local fromRevValue="${ARCV__VARS[from_rev_or_tag]}"
+        local toRevValue="${ARCV__VARS[to_rev_or_tag]}"
+
+        local revWindow=""
+        YAML__get ".revision-history-window" revWindow 
+        if Str__isEmpty "${fromRevValue}" && Str__isEmpty "${toRevValue}" && ! Str__isEmpty "${revWindow}"  ; then
+            if ! Int__isInt "${revWindow}" ; then _susage "'$revWindow' is not a valid revision window number. Please fix the configuration file.";  fi
+            toRevValue=$(( $arcVersion - ${revWindow} ))
+            if [ $toRevValue -lt 0 ] ; then toRevValue=0 ; fi
         else
-            Arcv__showFileHistory $arcVersion
+            if ! Str__isEmpty "${fromRevValue}" ; then
+                Str__trimStart "$fromRevValue" fromRevValue "\\" 
+                if ! Int__isInt "${fromRevValue}" ; then _susage "'$fromRevValue' is not a valid start revision number";  fi
+                if [ ${fromRevValue} -lt 0 ] ; then
+                    fromRevValue=$(( $arcVersion + ${fromRevValue} ))
+                fi
+            fi
+
+            if ! Str__isEmpty "${toRevValue}" ; then
+                Str__trimStart "$toRevValue" toRevValue "\\" 
+                if ! Int__isInt "${toRevValue}" ; then _susage "'$toRevValue' is not a valid end revision number";  fi
+
+                if [ ${toRevValue} -lt 0 ] ; then
+                    toRevValue=$(( $arcVersion + ${toRevValue} ))
+                fi
+            fi
         fi
+
+        local histCmd=""
+        if [ -z "${ARCV__VARS["revisionlog_file"]}" ] ; then
+            histCmd+="Arcv__showHistory $arcVersion "
+        else
+            if File__fileExists "${ARCV__VARS["revisionlog_file"]}" ; then
+                local relFile
+                Arcv__getInfoSourceFileRelPath "${ARCV__VARS["revisionlog_file"]}" relFile 
+
+                histCmd+="Arcv__showFileHistory '${relFile}' $arcVersion "
+            else
+                _exit 170 "'${ARCV__VARS["revisionlog_file"]}' does not exist"
+            fi            
+        fi
+
+        histCmd+="'${fromRevValue}' ${toRevValue}"
+        if Input__testYesForcedInput ; then
+            :
+            #_log "Please wait, this may take some time"
+            #_log "You can use option -to=-<N> to limit the revision window to the Nth revision behind the head."
+        elif Str__isEmpty "${ARCV__VARS["output_format"]}" && ! Str__isEmpty "${ARCV__VARS["paging"]}" ]; then
+                histCmd+=" ${ARCV__VARS[paging]}"
+        fi
+        eval "$histCmd"
     elif ${ARCV__VARS["releaselog"]} ; then
-        Arcv__showReleaseHistory true
+        local cmd="Arcv__showReleaseHistory"        
+        if Input__testYesForcedInput ; then
+            cmd+=" true"
+        else
+            cmd+=" false"
+            if Str__isEmpty "${ARCV__VARS["output_format"]}" && [ ! -z "${ARCV__VARS["paging"]}" ]; then
+                cmd+=" ${ARCV__VARS[paging]}"
+            fi
+        fi
+        eval "$cmd"
     elif ${ARCV__VARS["export"]} ; then
         Arcv__exportToGitHub $arcVersion "${diffRevFolder}" "${diffRevFolderIsTmp}"
     elif ${ARCV__VARS["publish"]} ; then
-        local VERSIONFILE="${ARCV__VARS["backupsrc"]}/VERSION.txt"
-        if [ ! -f "${VERSIONFILE}" ] ; then
-            if Input__confirm_high "${VERSIONFILE} does not exist. Does you want to create it (starting from 1.0.0)? " || (echo && _exit -21 "Aborted") ; then
-                printf "1.0.0" > "${VERSIONFILE}"
-                av -y --silent -m "Added ${VERSIONFILE} while requesting creation of release tag"
-                if [ $? -eq 0 ] ; then
-                    _log_high "Created VERSION.txt"
-                    arcVersion=$(( arcVersion + 1))
-                    lastBackupappversiontarget="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${arcVersion}"
-                    #_log_vars lastBackupappversiontarget
-                else
-                    rm -f "${VERSIONFILE}" &>/dev/null
-                    _exit -1 "Failed to commit VERSION.txt. Release tagging aborted."
-                fi
-            fi
-            echo
-        fi
-
-        #
-        # Resolve 3 version numbers from VERSION.txt
-        # and check if not tag yet
-        #
-        local maj
-        local min
-        local upd
-        local ver="$(cat "$VERSIONFILE")" 
-        if ! Int__readVersion "$ver" maj min upd; then
-            _exit -21 "${VERSIONFILE} contains invalid version string '${ver}'"
-        fi
-
-        Arcv__askToConfirmOrAbortUponModification
-
-        local releaseFolder="${ARCV__VARS["backupapptarget"]}/releases"
-        mkdir -p "${releaseFolder}" &>/dev/null
-
-        local releaseTag="R${maj}.${min}.${upd}"
-        local releaseLink="${releaseFolder}/${releaseTag}"
-        local releaseLog="${releaseFolder}/${releaseTag}.log"
-
-        if [ -L "${releaseLink}" ] ; then
-            _exit -22 "Version ${maj}.${min}.${upd} has already been tagged. File exists: ${releaseLink}"
-        fi        
-
-        #
-        # Now , ask the user about the next version and update auto.
-        # File version.txt
-        #
-        local futureVer="${maj}.${min}.$(( ${upd}+1)) 
-${maj}.$((${min}+1)).0 
-$((${maj}+1)).0.0"
-        local futureVerAsArray=($futureVer)
-        local selectionIndex=0
-        if ! ${ARCV__VARS["subproc"]} ; then
-            Term__clear
-        fi
-        _log_high "Going to create release tag ${releaseTag}"
-        _log ""
-        local revLog
-        if [ ! -z "${ARCV__VARS["log_message"]}" ] ; then
-            revLog="${ARCV__VARS["log_message"]}"
+        if [ -z "${ARCV__VARS["publish-tag"]}" ] ; then
+            Arcv__createReleaseTag arcVersion
         else
-            if ! Input__sentence "Enter release log" "" revLog ; then
-                _exit -23 "Aborted"
-            fi
+            Arcv__createReleaseTagForRevision arcVersion "${ARCV__VARS["publish-tag"]}" 
         fi
-        echo "$revLog" > "${releaseLog}"
-
-        if ${ARCV__VARS["force-default-entry"]} ; then
-            selectionIndex=1
-        else
-            Input__cursorSelect "${futureVer}"  "Select next development version" 1
-            selectionIndex=$?
-            if [ $selectionIndex -eq 0 ] ; then
-                _exit -23 "Aborted"
-            fi
-            Term__reset
-        fi
-
-        #
-        # Create the release symbolic link and actual update of VERSION.txt
-        #
-        local relativeLastBackupappversiontarget="$(realpath --relative-to "${ARCV__VARS["backupapptarget"]}/releases" "${lastBackupappversiontarget}" )"
-        #_log_vars relativeLastBackupappversiontarget
-        #_quit ""
-
-        #_log_high "${futureVerAsArray[$(($selectionIndex-1))]}"
-        echo # To insert new line after menu, required
-        echo "${futureVerAsArray[$(($selectionIndex-1))]}" > "$VERSIONFILE"
-        if [ $? -ne 0 ] ; then  
-            _exit -24 "Failed to update '$VERSIONFILE'. Aborted"
-        fi
-
-        ln -s "${relativeLastBackupappversiontarget}" "${releaseLink}"
-        if [ $? -ne 0 ] ; then  
-            echo "$ver" > "$VERSIONFILE" # Restore initial version
-            _exit -24 "Failed to create symlink '$releaseLink'. Aborted"
-        fi
-
-        _log_high "Successfully created release tag ${releaseTag} for revision ${arcVersion}"
         _quit ""
     elif ${ARCV__VARS["tarball"]} ; then
         Arcv__exportToTarball $arcVersion "${diffRevFolder}" "${diffRevFolderIsTmp}"
@@ -3304,14 +4538,6 @@ $((${maj}+1)).0.0"
                 _log "$(( $arcVersion - 1 ))"
             else
                 _log "$arcVersion"
-            fi
-        fi
-        if [ ! -f "$headRevFile" ] ; then
-            #_log_warn "$headRevFile does not exist. Restoring it"
-            if [ $arcVersion -gt 0 ] ; then
-                echo "$(( $arcVersion - 1 ))" > "$headRevFile"
-            else
-                echo "$arcVersion" > "$headRevFile"
             fi
         fi
     elif ${ARCV__VARS["hash"]} ; then            
@@ -3473,6 +4699,7 @@ $line"
 
             # Unchanged files mustn't be copied in the new revision image
             excludeFilesCmd=""
+            local sameFilesBasenames=()
             if [ ${#sameFiles[@]} -gt 0 ] ; then
                 File__createTempFile excludeFilesTmp
                 local sameFile
@@ -3481,7 +4708,10 @@ $line"
                     #_log_vars sameFile
                     # -s: do not follow symlinks when determining file path to exclude
                     sameFile="${sameFile//§§§/ }"
-                    echo "- ${ARCV__VARS["backupsrcBasename"]}/$(realpath -s --relative-to="${ARCV__VARS["backupsrc"]}" "$sameFile")" >> "${excludeFilesTmp}"
+                    
+                    local sameFileName="$(realpath -s --relative-to="${ARCV__VARS["backupsrc"]}" "$sameFile")"
+                    sameFilesBasenames+=("${sameFileName}")
+                    echo "- ${ARCV__VARS["backupsrcBasename"]}/$sameFileName" >> "${excludeFilesTmp}"
                     #echo "- $sameFile" >> "${excludeFilesTmp}"
                 done
                 #echo "${sameFiles}" > "${excludeFilesTmp}"
@@ -3538,9 +4768,11 @@ $line"
         #_log_vars shafullpath
         if $allowCommand ; then
             local revLog=""
+            local showLastLogs=false
+            local permissionOnlyChangeFiles=()
 
             if [ $arcVersion -gt 0 ] ; then
-                if which meld &>/dev/null && ! Input__testYesForcedInput && ! ${ARCV__VARS["silent"]} ; then
+                if ! Input__testYesForcedInput && ! ${ARCV__VARS["silent"]} && ! ${ARCV__VARS["check-in-list-only"]} ; then
                     Arcv__menuFileAction "Changed" "${ARCV__VARS["backupsrc"]}" "$diffFiles" revLog
                 else
                     Arcv__listCommitFiles "Changed" "${ARCV__VARS["backupsrc"]}" "$diffFiles" revLog
@@ -3549,16 +4781,79 @@ $line"
                 Arcv__listCommitFiles "New" "${ARCV__VARS["backupsrc"]}" "$onlyInCurrent" revLog
                 Arcv__listCommitFiles "Deleted" "${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}" "$onlyInHead" revLog
 
-                Arcv__listExcludedFilePatterns
+                Arcv__listPermissionChanges "Permission-only change" revLog sameFilesBasenames permissionOnlyChangeFiles
+                #_log_vars revLog
+                #echo && echo "permissionOnlyChangeFiles ${permissionOnlyChangeFiles[@]}"
 
-                _log_ifnot ${ARCV__VARS["silent"]} ""
-                if ! ${ARCV__VARS["silent"]} ; then 
-                    _colorText "Previous logs:" "white_underline" && echo
-                    $0 log -n --subproc| grep -E -v ^[[:space:]]*$
+                Arcv__listExcludedFilePatterns "Excluded" revLog
+
+                # Handle dry checkin request
+                if ${ARCV__VARS["check-in-list-only"]} ; then
+                    return 0
+                fi
+
+                showLastLogs=true
+            fi
+
+            #
+            # If automatic log is empty, it means there was no content change
+            # This block handles the case where no content change was detected  but the SHA fingerprints do not match. 
+            # Possible cause may be a file which timestamp changed only, e.g. after a copy or a touch command.
+            # User may run 'arcv co' to sync with head again or 'arcv --fix' to fix the fingerprint.
+            #
+            if Str__isEmpty "${revLog}" ; then  
+                # If no change in file contents is detected, either fix the hash if requested or check the permission changes with the head. In all case, SHA must be recomputed
+                local resSHAComp=1                
+                Arcv__getSourceSHA256 sha256 sha256Data
+                resSHAComp=$?
+
+                if ${ARCV__VARS["fix-hash"]} ; then
+                    if [ $resSHAComp -eq 0 ]; then
+                        ARCV__VARS["backupappversiontarget"]="${lastBackupappversiontarget}"
+                        if Arcv__updateCurrentTargetSHA256 "${sha256}" ; then
+                            echo
+                            _log_high "Successfully reset hash to '${sha256}'" 
+                            echo
+                            exec "$0" "--subproc"
+                        fi
+                    else
+                        _exit -80 "Failed to recompute hash for source dir '${ARCV__VARS["backupsrc"]}'. Check-in aborted."
+                    fi
+
+                else
+                    echo "">&2
+                    _log_err "
+No content was changed in this folder, but the SHA fingerprints do not match. 
+Possible cause may be a file which timestamp changed only, e.g. after a copy or a touch command.
+You may run 'arcv co' to sync with head again or 'arcv --fix' to fix the fingerprint.
+"
+                    _quit ""
                 fi
             fi
 
-            _log_ifnot ${ARCV__VARS["silent"]} "$(_colorText "Commit:" "white_underline" && echo)"
+
+            # Show last logs at last before actual commit
+            if $showLastLogs; then
+                if [ ! -z "${revLog}" ] ; then    
+                    _log_ifnot ${ARCV__VARS["silent"]} ""
+                    if ! ${ARCV__VARS["silent"]} ; then 
+                        local fiveRevBackwardRev=0
+                        if [ ${arcVersion} -gt 5 ] ; then
+                            fiveRevBackwardRev=$(( $arcVersion - 5 ))
+                        fi
+                        _colorText "Previous logs:" "underline" && echo
+                        $0 log --to="$fiveRevBackwardRev" --subproc| grep -E -v ^[[:space:]]*$
+                        echo
+                    fi
+                fi
+            fi
+
+            # Handle dry checkin request
+            if ${ARCV__VARS["check-in-list-only"]} ; then
+                return 0
+            fi
+
+            _log_ifnot ${ARCV__VARS["silent"]} "$(_colorText "Commit:" "underline" && echo)"
             _log_ifnot ${ARCV__VARS["silent"]} "Folder ${ARCV__VARS["backupsrc"]} is going to backed up as revision ${arcVersion} inside:"
             _log_ifnot ${ARCV__VARS["silent"]} "$(_colorText "${ARCV__VARS["backupappversiontarget"]}" "green_reverse")"
 
@@ -3574,8 +4869,13 @@ $line"
                 echo
                 revLog="${ARCV__VARS["log_message"]}"
             fi
+
+
             #_log_vars revLog
             #exit 0
+            # FOR DEBUGGING PERMISSION ONLY CHANGED FILES
+            #_log_vars excludeFilesTmp
+            #cat $excludeFilesTmp
 
             if ! Input__testYesForcedInput ; then
                 Input__timeoutKeystroke "Archive starting in " 7 " seconds. Press any key to start immediately."
@@ -3584,14 +4884,38 @@ $line"
             # Added any exclusion specified in argument
             Arcv__addEXCLUDE "${ARCV__VARS["excluded_file_patterns"]}"
 
+            # For those files which permissions-only changed
+            # do the following updates:
+            #
+            # - execute touch to force copy them because otherwise
+            # their date does not change and won't be copied into
+            # the repository
+            #
+            # - Exclude it from the exclusions list file
+            #
+            local permOnlyChangedFile=""
+            for permOnlyChangedFile in "${permissionOnlyChangeFiles[@]}" ; do
+                touch "${ARCV__VARS["backupsrc"]}/${permissionOnlyChangeFilesItem}"
+
+                if [ -f "${excludeFilesTmp}" ] ; then
+                    local tmp1=""
+                    File__createTempFile tmp1
+                    local excludeString="- ${ARCV__VARS["backupsrcBasename"]}/${permOnlyChangedFile}"
+
+                    #_log_vars excludeString
+                    cat "${excludeFilesTmp}" | grep -v -E ^"$excludeString" > "$tmp1"
+                    cp "$tmp1" "${excludeFilesTmp}"
+                fi
+            done
+            # FOR DEBUGGING PERMISSION ONLY CHANGED FILES
+            #echo "after perm filter:"
+            #cat $excludeFilesTmp
+            #exit 0
+
             # Before creating the new revision, always recompute
             # the fingerprint, because a file may have been modified 
             # during the diff checking with meld
-            local lsIgnoreOptions=""    
-            Arcv__completeLsIgnorePatternsFromRepoExcludeFile lsIgnoreOptions
-            #_log_vars lsIgnoreOptions >&2 # DEBUG
-
-            if ! File__dirSHA256 "${ARCV__VARS["backupsrc"]}" sha256 "${lsIgnoreOptions}"; then
+            if ! Arcv__getSourceSHA256 sha256 sha256Data ; then
                 _exit -80 "Failed to recompute hash for source dir '${ARCV__VARS["backupsrc"]}'. Check-in aborted."
             fi
 
@@ -3619,7 +4943,6 @@ $line"
         fi
     fi
 }
-
 
 allArgs=("$@")
 if _main "${allArgs[@]}" ; then

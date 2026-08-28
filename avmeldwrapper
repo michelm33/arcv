@@ -9,18 +9,19 @@
 # License terms written down in file LICENSE.txt
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
-# Release file path: avl
+# Release file path: avmeldwrapper
 # Release file date: 2026-08-28 00:37
 # App version: 1.2.0
 # App source revision: 299
 # App source signature: 10b23adcc37dc4efe21cfd1444afadadbd879990635ca589d3b37377cfb56b8a
-# Source file last modification: 2026-06-14 20:45:31.625095892 +0200
+# Source file last modification: 2026-08-27 11:48:22.590799144 +0200
 #
 # This header was generated. Do not modify.
 #
 # ------------------------------------------------------------------------------
 #
-# arcv alias script for arcv log --verbose
+# Wrapper for meld for avoiding meld getting stuck when killed at arcv exit
+# and redirecting standard output
 #
 # ------------------------------------------------------------------------------
 # 
@@ -34,6 +35,4 @@
 # outside specific commercial terms agreed.
 # 
 ###############################################################################
-BASEDIR=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
-exec ${BASEDIR}/arcv log --verbose
-
+"$@" &>/dev/null

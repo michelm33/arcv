@@ -58,10 +58,9 @@ SYNOPSIS
 
               Make a diff with the specified revision using meld tool
 
-       pub
+       pub  [RELEASE TAG:REVISION]
 
-              Creates a new release by tagging the head revision with the con‐
-              tent of the VERSION.txt file.
+              Create a new release tag
 
        rel
 
@@ -69,7 +68,8 @@ SYNOPSIS
 
        repo  [INFONAME]
 
-              Display the specified information of the repository
+              Display  the specified information of the repository or all when
+              none specified
 
        rev
 
@@ -86,6 +86,15 @@ SYNOPSIS
 
               Activate debug logs
 
+       --fix
+
+              Fix SHA hashcode
+
+       --from =(REVISION | RELEASE_TAG)
+
+              Specify  the  most  recent revision or release tag from which to
+              start the operation
+
        --silent
 
               Silent mode
@@ -94,9 +103,18 @@ SYNOPSIS
 
               Source directory to checkout from the repository
 
+       --to =(REVISION | RELEASE_TAG)
+
+              Specify the oldest revision or release tag until which to  apply
+              the operation
+
        --verbose
 
               Verbose mode
+
+       -F, --fmt =FILE PATTERNS
+
+              Specifies the output format
 
        -X, --exclude =FILE PATTERNS
 
@@ -105,6 +123,10 @@ SYNOPSIS
        -f =FILENAME
 
               Configure the arcv operational config filename (permament)
+
+       -l
+
+              Dry check-in, listing only new/deleted/changed files
 
        -m, --message =STRING
 
@@ -263,11 +285,12 @@ COMMAND DETAILS
               no  revision number is supplied, the head revision is considered
               by default.
 
-       pub
+       pub [RELEASE TAG:REVISION]
 
-              Creates a new release by tagging the head revision with the con‐
-              tent  of the VERSION.txt file.  Then it prompts the user for the
-              next version and updates VERSION.txt accordingly.
+              When no argument is supplied, creates a new release  by  tagging
+              the  head  revision  with  the  content of the VERSION.txt file.
+              Then it prompts the user for the next version and  updates  VER‐
+              SION.txt accordingly.
 
        rel
 
@@ -275,10 +298,10 @@ COMMAND DETAILS
 
        repo [INFONAME]
 
-              Displays the specified information of the repository.  Supported
-              values:
-
-              git-repo: show the path to the git folder
+              Displays  the specified information of the repository. Supported
+              values:  releases  latest-release-tag   latest-release-rev   ex‐
+              clude-file exclusions src-dir rev-dir rev-hashfilepath rev-hash‐
+              filename head-dir head-image-dir  git-repo size
 
        rev
 
@@ -290,13 +313,30 @@ COMMAND DETAILS
               revision.  When used without argument, creates a tarball for the
               current source folder, i.e. the current working directory.  When
               a revision number is supplied as argument, creates a tarball for
-              the  specified revision.  In both cases, the current working di‐
+              the specified revision.  In both cases, the current working  di‐
               rectory must be the root of the versioned folder.
 
 OPTIONS DETAILS
        --debug
 
               Activate debug logs
+
+       --fix
+
+              This  option  enables  to explicitly fix the SHA fingerprint aka
+              hash code in case there's a mismatch between current source  and
+              the  stored  finger whilst no change was actually detected. This
+              can be useful when the internal hash computation  algorithm  may
+              change  or  could get anyhow broken because of an untested envi‐
+              ronment or an internal bug.  In any other case, this option  has
+              no effect.
+
+       --from (REVISION | RELEASE_TAG)
+
+              Specifies  the most recent revision or release tag from which to
+              start the operation. A negative number N designates the Nth  re‐
+              vision behind the head. At the moment, this option is only rele‐
+              vant for the history logs.
 
        --silent
 
@@ -309,9 +349,23 @@ OPTIONS DETAILS
               folder to checkout can be specified with this option instead  of
               resolving the source folder from the current working directory.
 
+       --to (REVISION | RELEASE_TAG)
+
+              Specifies  the oldest revision or release tag until which to ap‐
+              ply the operation.  A negative number N designates the Nth revi‐
+              sion  behind  the head. At the moment, this option is only rele‐
+              vant for the history logs.
+
        --verbose
 
               Verbose mode
+
+       -F, --fmt FILE PATTERNS
+
+              Specifies the format of the output of a command. At the  moment,
+              this  option is only relevant for history logs and diffs.  There
+              iss no effect if the format is not supported by the applied com‐
+              mand
 
        -X, --exclude FILE PATTERNS
 
@@ -322,6 +376,10 @@ OPTIONS DETAILS
 
               Arcv operational configuration filename, if different of the de‐
               fault one coming along with the app, modified or not.
+
+       -l
+
+              Dry check-in, listing only new/deleted/changed files
 
        -m, --message STRING
 
@@ -356,4 +414,4 @@ COPYRIGHT
        License terms written down in file LICENSE.txt Les termes de la licence
        sont détaillés dans le fichier LICENSE.txt
 
-Arcv 1.1.0                        August 2026                          ARCV(8)
+Arcv 1.2.0                        August 2026                          ARCV(8)

@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__options.sh
-# Release file date: 2026-08-13 12:41
-# App version: 1.1.0
-# App source revision: 232
-# App source signature: b5ab64109e46cf5d95f43c697890c321068f34c5fef2f21da1d2e0f2a58782e9
-# Source file last modification: 2026-08-12 02:02:53.514074333 +0200
+# Release file date: 2026-08-28 00:37
+# App version: 1.2.0
+# App source revision: 299
+# App source signature: 10b23adcc37dc4efe21cfd1444afadadbd879990635ca589d3b37377cfb56b8a
+# Source file last modification: 2026-08-24 12:51:16.798913032 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -65,7 +65,6 @@ ARCV__OPTION_LIST_VALS["diff"]='
 ARCV__VARS["checkin"]=false
 Arcv__parseDiffArgValue "${__myarg}"
 '           # Action to be executed when option accepts a value
-
 
 
 ARCV__OPTION_LIST_SDESC["meld"]="Make a diff with the specified revision using meld tool"
@@ -286,21 +285,28 @@ ARCV__OPTION_LIST_VALS["--branch-root-rev"]='
 
 
 
-
-
-
-ARCV__OPTION_LIST_SDESC["pub"]="Creates a new release by tagging the head revision with the content of the VERSION.txt file."
+ARCV__OPTION_LIST_SDESC["pub"]="Create a new release tag"
 ARCV__OPTION_LIST_DESC["pub"]="
-Creates a new release by tagging the head revision with the content of the VERSION.txt file. 
+When no argument is supplied, creates a new release by tagging the head revision with the content of the VERSION.txt file. 
 Then it prompts the user for the next version and updates VERSION.txt accordingly.
-"   
-ARCV__OPTION_LIST_ARGS["pub"]="1"      # 0:mandatory value, 1:no value, 2:optional value
+"
+ARCV__OPTION_LIST_ARGS_TYPE["pub"]="RELEASE TAG:REVISION"
+ARCV__OPTION_LIST_ARGS["pub"]="2"      # 0:mandatory value, 1:no value, 2:optional value
 ARCV__OPTION_LIST_ACTI["pub"]='
-ARCV__VARS["checkin"]=false
-ARCV__VARS["publish"]=true
-ARCV__VARS["diff_rev"]=""  # use last version
+    ARCV__VARS["checkin"]=false
+    ARCV__VARS["publish"]=true
+    ARCV__VARS["diff_rev"]=""  # use last version
 '          # Action to be executed when option is read
-
+ARCV__OPTION_LIST_VALS["pub"]='
+    local tagname=""
+    local revision=""
+    Str__split "$__myarg" tagname ":" revision 1
+    if [ -z "$tagname" ] ||  [ -z "$revision" ] ; then
+        _exit -1 "Invalid <tag:rev> argument ${__myarg}."
+    fi
+    ARCV__VARS["publish-tag"]="$tagname"
+    ARCV__VARS["diff_rev"]="$revision"
+'
 
 
 ARCV__OPTION_LIST_SDESC["tarball"]="Create a tarball for the current source folder or the specified revision"
@@ -371,6 +377,17 @@ Assume 'No' answer for any confirmation request
 "
 ARCV__OPTION_LIST_ARGS["-n"]="1"
 ARCV__OPTION_LIST_ACTI["-n"]='Input__pushForcedInput "n"'
+
+
+ARCV__OPTION_LIST_SDESC["-l"]="Dry check-in, listing only new/deleted/changed files"
+ARCV__OPTION_LIST_DESC["-l"]="
+Dry check-in, listing only new/deleted/changed files
+"
+ARCV__OPTION_LIST_ARGS["-l"]="1"
+ARCV__OPTION_LIST_ACTI["-l"]='
+ARCV__VARS["check-in-list-only"]=true
+'
+
 
 
 ARCV__OPTION_LIST_INTERN["--subproc"]=0
@@ -531,13 +548,11 @@ ARCV__VARS["excluded_file_patterns"]="${__myarg}"
 '
 
 
-
-
-ARCV__OPTION_LIST_SDESC["repo"]='Display the specified information of the repository'
+ARCV__OPTION_LIST_SDESC["repo"]='Display the specified information of the repository or all when none specified'
 
 ARCV__OPTION_LIST_DESC["repo"]='
-Displays the specified information of the repository. Supported values:
-  git-repo: show the path to the git folder
+Displays the specified information of the repository. Supported values: 
+releases latest-release-tag latest-release-rev exclude-file exclusions src-dir rev-dir rev-hashfilepath rev-hashfilename head-dir head-image-dir  git-repo size
 '
 ARCV__OPTION_LIST_ARGS["repo"]="2" 
 ARCV__OPTION_LIST_ARGS_TYPE["repo"]="INFONAME"
@@ -549,7 +564,64 @@ ARCV__VARS["repo_infoname"]=""
 ARCV__OPTION_LIST_VALS["repo"]='
 ARCV__VARS["repo_infoname"]="${__myarg}"
 '
-ARCV__OPTION_LIST_ENUM["repo"]='releases exclude-file exclusions src-dir rev-dir head-dir git-repo size'
+ARCV__OPTION_LIST_ENUM["repo"]='releases latest-release-tag latest-release-rev exclude-file exclusions src-dir rev-dir rev-hashfilepath rev-hashfilename head-dir head-image-dir git-repo size'
+
+
+
+ARCV__OPTION_LIST_SDESC["-F|--fmt"]='Specifies the output format'
+
+ARCV__OPTION_LIST_DESC["-F|--fmt"]='
+Specifies the format of the output of a command. At the moment, this option is only relevant for history logs and diffs.
+There iss no effect if the format is not supported by the applied command
+'
+ARCV__OPTION_LIST_ARGS["-F|--fmt"]="0" 
+ARCV__OPTION_LIST_ARGS_TYPE["-F|--fmt"]="FILE PATTERNS"
+ARCV__OPTION_LIST_ACTI["-F|--fmt"]=""
+ARCV__OPTION_LIST_VALS["-F|--fmt"]='
+local lowArg="${__myarg}"
+Str__toLower lowArg
+ARCV__VARS["output_format"]="${lowArg}"
+if ! Array__contains_by_string "${ARCV__OPTION_LIST_ENUM["-F|--fmt"]}" "$lowArg" ; then
+    _susage "Invalid format ${__myarg}"
+fi
+'
+ARCV__OPTION_LIST_ENUM["-F|--fmt"]='plain adoc'
+
+
+ARCV__OPTION_LIST_SDESC["--from"]='Specify the most recent revision or release tag from which to start the operation'
+
+ARCV__OPTION_LIST_DESC["--from"]='
+Specifies the most recent revision or release tag from which to start the operation. A negative number N designates the Nth revision behind the head. At the moment, this option is only relevant for the history logs.
+'
+ARCV__OPTION_LIST_ARGS["--from"]="0" 
+ARCV__OPTION_LIST_ARGS_TYPE["--from"]="(REVISION | RELEASE_TAG)"
+ARCV__OPTION_LIST_ACTI["--from"]=""
+ARCV__OPTION_LIST_VALS["--from"]='
+ARCV__VARS["from_rev_or_tag"]="${__myarg}"
+'
+
+
+ARCV__OPTION_LIST_SDESC["--to"]='Specify the oldest revision or release tag until which to apply the operation'
+
+ARCV__OPTION_LIST_DESC["--to"]='
+Specifies the oldest revision or release tag until which to apply the operation. A negative number N designates the Nth revision behind the head. At the moment, this option is only relevant for the history logs.
+'
+ARCV__OPTION_LIST_ARGS["--to"]="0" 
+ARCV__OPTION_LIST_ARGS_TYPE["--to"]="(REVISION | RELEASE_TAG)"
+ARCV__OPTION_LIST_ACTI["--to"]=""
+ARCV__OPTION_LIST_VALS["--to"]='
+ARCV__VARS["to_rev_or_tag"]="${__myarg}"
+'
+
+
+
+ARCV__OPTION_LIST_SDESC["--fix"]="Fix SHA hashcode"
+ARCV__OPTION_LIST_DESC["--fix"]="
+This option enables to explicitly fix the SHA fingerprint aka hash code in case there's a mismatch between current source and the stored finger whilst no change was actually detected. This can be useful when the internal hash computation algorithm may change or could get anyhow broken because of an untested environment or an internal bug.
+In any other case, this option has no effect.
+"
+ARCV__OPTION_LIST_ARGS["--fix"]="1"
+ARCV__OPTION_LIST_ACTI["--fix"]='ARCV__VARS["fix-hash"]=true'
 
 
 # implement that later

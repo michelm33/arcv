@@ -10,10 +10,10 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__help.sh
-# Release file date: 2026-08-13 12:41
-# App version: 1.1.0
-# App source revision: 232
-# App source signature: b5ab64109e46cf5d95f43c697890c321068f34c5fef2f21da1d2e0f2a58782e9
+# Release file date: 2026-08-28 00:37
+# App version: 1.2.0
+# App source revision: 299
+# App source signature: 10b23adcc37dc4efe21cfd1444afadadbd879990635ca589d3b37377cfb56b8a
 # Source file last modification: 2026-07-26 11:29:13.500156335 +0200
 #
 # This header was generated. Do not modify.

@@ -47,7 +47,7 @@ man: arcv.8 man_install
 	# width, because paging done by man is dependent of it
 	gnome-terminal --geometry 80x50+0+0 --title="arcv"  --wait -- bash -c 'man arcv > MANPAGE.txt'
 	#man arcv > MANPAGE.txt
-	@if which arcv >/dev/null 2>/dev/null; then av diff >/dev/null ; if [ $$? -eq 0 ] ; then av -y co MANPAGE.txt >/dev/null; fi ; fi
+	@if which arcv >/dev/null 2>/dev/null; then av diff --fmt=plain >/dev/null ; if [ $$? -eq 0 ] ; then av -y co MANPAGE.txt >/dev/null; fi ; fi
 
 
 .PHONY: man_install
@@ -56,7 +56,7 @@ man_install: arcv.8
 	@echo 
 	@echo "Installing man pages and building gzip for $(TARGET)/$<"
 	@echo 
-	@if which arcv >/dev/null 2>/dev/null; then av diff >/dev/null ; if [ $$? -eq 0 ] ; then av -y co $< >/dev/null; fi ; fi
+	@if which arcv >/dev/null 2>/dev/null; then av diff --fmt=plain >/dev/null ; if [ $$? -eq 0 ] ; then echo "checking out" ; av -y co $< >/dev/null; fi ; fi
 	sudo install -g 0 -o 0 -m 0644 $< $(TARGET)
 	sudo gzip -f $(TARGET)/$<
 
@@ -83,7 +83,7 @@ release: required_tools man release_no_man_internal
 	@echo SUCCESS
 
 .PHONY: release_no_man_internal
-release_no_man_internal: check_uptodate create_package update_web_download_page update_website_ftp
+release_no_man_internal: check_uptodate create_package ftp web
 	@echo SUCCESS
 
 .PHONY: pub
@@ -176,7 +176,6 @@ create_package: build_release build_package build_package_cleanup
 	@echo "FINISHED"
 	@echo 
 
-# an alias for update_website_ftp
 .PHONY: package
 package : create_package
 
@@ -197,19 +196,22 @@ build_package_cleanup:
 	@echo 
 	@cd $(VERS_REL_DIR)/debian && rm -r .debhelper && rm -rf $(PRODUCT) && rm debhelper* && rm files && rm rules && rm links && rm arcv-*doc* && echo && echo '>>>>>>>>>>>>>>> SUCCESS <<<<<<<<<<<<<<<<<<<<' ||  echo '!!!!!!!!!!!!!!!! FAIL !!!!!!!!!!!!!!!!'
 
-.PHONY: update_web_download_page
-update_web_download_page:
+.PHONY: web
+web:
 	@echo 
 	@echo 
-	@echo "UPDATING DOWNLOAD PAGE"
+	@echo "UPDATING WEB PAGES"
 	@echo 
 	@tools/update-web-download-page.sh "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv_download.adoc" "$(PRODUCT)" "$(VERSION_DEB)" "$(VERSION_DEB_FOR_ZIP)"  && echo && echo '>>>>>>>>>>>>>>> SUCCESS <<<<<<<<<<<<<<<<<<<<' ||  echo '!!!!!!!!!!!!!!!! FAIL !!!!!!!!!!!!!!!!'
-	@tools/update-web-download-page.sh "./README.asciidoc" "$(PRODUCT)" "$(VERSION_DEB)" "$(VERSION_DEB_FOR_ZIP)"  && echo && echo '>>>>>>>>>>>>>>> SUCCESS <<<<<<<<<<<<<<<<<<<<' ||  echo '!!!!!!!!!!!!!!!! FAIL !!!!!!!!!!!!!!!!'
-	@if which arcv >/dev/null 2>/dev/null; then av diff >/dev/null ; if [ $$? -eq 0 ] ; then av -y co README.asciidoc >/dev/null; fi ; fi
+	cp arcv.css  "$(WEBSITE_DIR)/products/pages/"
+	av log --fmt=adoc --to=0 > "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv-cm-full-log.adoc"
+	av rel --fmt=adoc > "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv-cm-release-log.adoc"
+	@if which arcv >/dev/null 2>/dev/null; then av diff --fmt=plain >/dev/null ; if [ $$? -eq 0 ] ; then av -y co README.asciidoc >/dev/null; fi ; fi
 	@echo 
 
-.PHONY: update_website_ftp
-update_website_ftp:
+
+.PHONY: ftp
+ftp:
 	@echo 
 	@echo 
 	@echo "UPLOADING TO FTP"
@@ -217,6 +219,6 @@ update_website_ftp:
 	@sf -F -y && echo '>>>>>>>>>>>>>>> SUCCESS <<<<<<<<<<<<<<<<<<<<' ||  echo '!!!!!!!!!!!!!!!! FAIL !!!!!!!!!!!!!!!!'
 	@echo 
 
-# an alias for update_website_ftp
+# an alias for ftp
 .PHONY: upload
-upload : update_website_ftp
+upload : ftp
