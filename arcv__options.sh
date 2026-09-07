@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__options.sh
-# Release file date: 2026-08-28 00:37
-# App version: 1.2.0
-# App source revision: 299
-# App source signature: 10b23adcc37dc4efe21cfd1444afadadbd879990635ca589d3b37377cfb56b8a
-# Source file last modification: 2026-08-24 12:51:16.798913032 +0200
+# Release file date: 2026-09-06 23:54
+# App version: 1.2.1
+# App source revision: 317
+# App source signature: 08decfca3e559820c93cb0da7d288b9d0b8ca2dfd533a76a3449d2a1bc4e748d
+# Source file last modification: 2026-09-03 18:23:05.287997951 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -309,6 +309,30 @@ ARCV__OPTION_LIST_VALS["pub"]='
 '
 
 
+
+
+ARCV__OPTION_LIST_SDESC["hook"]="Create a release hook and lists the hook(s)"
+ARCV__OPTION_LIST_DESC["hook"]="
+Without arguments, lists the defined hook(s).
+Otherwise, creates a release hook with the passed executable that will be run whenever a release tag is created. It will ensure that hook as the execution rights
+"
+ARCV__OPTION_LIST_ARGS_TYPE["hook"]="FILE"
+ARCV__OPTION_LIST_ARGS["hook"]="2"      # 0:mandatory value, 1:no value, 2:optional value
+ARCV__OPTION_LIST_ACTI["hook"]='
+    ARCV__VARS["checkin"]=false
+    ARCV__VARS["releaselog"]=true      
+    ARCV__VARS["releasehooks"]=true
+'         
+ARCV__OPTION_LIST_VALS["hook"]='
+    ARCV__VARS["releaselog"]=false      
+    ARCV__VARS["releasehooks"]=false
+    ARCV__VARS["silent"]=true
+    ARCV__VARS["publish"]=true
+    ARCV__VARS["diff_rev"]=""  # use last version
+    ARCV__VARS["hook"]="${__myarg}"
+'
+
+
 ARCV__OPTION_LIST_SDESC["tarball"]="Create a tarball for the current source folder or the specified revision"
 ARCV__OPTION_LIST_DESC["tarball"]="
 Creates a tarball for the current source folder or the specified revision. 
@@ -564,9 +588,7 @@ ARCV__VARS["repo_infoname"]=""
 ARCV__OPTION_LIST_VALS["repo"]='
 ARCV__VARS["repo_infoname"]="${__myarg}"
 '
-ARCV__OPTION_LIST_ENUM["repo"]='releases latest-release-tag latest-release-rev exclude-file exclusions src-dir rev-dir rev-hashfilepath rev-hashfilename head-dir head-image-dir git-repo size'
-
-
+ARCV__OPTION_LIST_ENUM["repo"]='release-dir release-hooks releases latest-release-tag latest-release-rev exclude-file exclusions src-dir rev-dir rev-hashfilepath rev-hashfilename head-dir head-image-dir git-repo size'
 
 ARCV__OPTION_LIST_SDESC["-F|--fmt"]='Specifies the output format'
 

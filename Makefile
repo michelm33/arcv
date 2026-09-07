@@ -16,7 +16,7 @@
 # //////////////////////////////////////////////////////////////////////////////////////////
 #
 ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
-TARGET=/usr/share/man/man8/
+TARGET=/usr/share/man/man1/
 VERSION=$(shell cat VERSION.txt)
 VERSION_DEB=$(shell awk -F'.' '{ printf("%s.%s-%s" ,$$1,$$2,$$3);}' VERSION.txt)
 VERSION_DEB_FOR_TARXV=$(shell awk -F'.' '{ printf("%s.%s_%s" ,$$1,$$2,$$3);}' VERSION.txt)
@@ -38,7 +38,7 @@ WEBSITE_DIR=$(shell echo ~/riffian/Data/Documents/professionnel/SlashEtc/siteweb
 all:
 
 .PHONY: man
-man: arcv.8 man_install
+man: arcv.1 man_install
 	@echo 
 	@echo "#################################"
 	@echo "Creating MANPAGE.txt from man pages"
@@ -51,7 +51,7 @@ man: arcv.8 man_install
 
 
 .PHONY: man_install
-man_install: arcv.8
+man_install: arcv.1
 	@echo 
 	@echo 
 	@echo "Installing man pages and building gzip for $(TARGET)/$<"
@@ -60,8 +60,8 @@ man_install: arcv.8
 	sudo install -g 0 -o 0 -m 0644 $< $(TARGET)
 	sudo gzip -f $(TARGET)/$<
 
-arcv.8: required_help2man FORCE    
-	export TZ="US/Pacific" && export LC_ALL="C.UTF-8" && export LANG="EN.US.UTF-8" && help2man -L en_EN@euro --no-info --section 8 --name "arcv is a lightweight, easy-to-use revision control system which keeps untouched the user's original source files and folders" --help-option="--man" --output=$@ ./arcv
+arcv.1: required_help2man FORCE    
+	export TZ="US/Pacific" && export LC_ALL="C.UTF-8" && export LANG="EN.US.UTF-8" && help2man -L en_EN@euro --no-info --section 1 --name "arcv is a rsync-based, easy-to-use revision control tool which keeps intact users' files and directories" --help-option="--man" --output=$@ ./arcv
 # --manual="System Administration Utilities"
 
 .PHONY: required_help2man
@@ -83,7 +83,7 @@ release: required_tools man release_no_man_internal
 	@echo SUCCESS
 
 .PHONY: release_no_man_internal
-release_no_man_internal: check_uptodate create_package ftp web
+release_no_man_internal: check_uptodate create_package ftp web_download
 	@echo SUCCESS
 
 .PHONY: pub
@@ -160,14 +160,13 @@ build_release: required_tools CHANGELOG.txt COPYRIGHT.txt VERSION.txt
 	@cd $(VERS_REL_DIR) && ls -1|grep -v debian|awk '{ print $$1,"/usr/bin/arcv" }' > debian/install
 	@#
 	@#echo "DEBIAN MANPAGE FILE"
-	@#cp arcv.8 $(VERS_REL_DIR)/debian/$(PRODUCT).8
-	@#echo "debian/arcv.8" > $(VERS_REL_DIR)/debian/$(PRODUCT).manpages
+	@#cp arcv.1 $(VERS_REL_DIR)/debian/$(PRODUCT).1
+	@#echo "debian/arcv.1" > $(VERS_REL_DIR)/debian/$(PRODUCT).manpages
 	@#
 	@echo "CLEANUP EXAMPLE FILES"
 	@rm -rf $(VERS_REL_DIR)/debian/*.ex 2>/dev/null || echo  # example folders
 	@rm $(VERS_REL_DIR)/debian/README.* 2>/dev/null || echo
 	@#
-
 
 .PHONY: create_package
 create_package: build_release build_package build_package_cleanup
@@ -196,19 +195,24 @@ build_package_cleanup:
 	@echo 
 	@cd $(VERS_REL_DIR)/debian && rm -r .debhelper && rm -rf $(PRODUCT) && rm debhelper* && rm files && rm rules && rm links && rm arcv-*doc* && echo && echo '>>>>>>>>>>>>>>> SUCCESS <<<<<<<<<<<<<<<<<<<<' ||  echo '!!!!!!!!!!!!!!!! FAIL !!!!!!!!!!!!!!!!'
 
+.PHONY: web_download
+web_download:
+	@echo 
+	@echo 
+	@echo "UPDATING DOWNLOAD PAGE"
+	@echo 
+	@tools/update-web-download-page.sh "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv_download.adoc" "$(PRODUCT)" "$(VERSION_DEB)" "$(VERSION_DEB_FOR_ZIP)"  && echo && echo '>>>>>>>>>>>>>>> SUCCESS <<<<<<<<<<<<<<<<<<<<' ||  echo '!!!!!!!!!!!!!!!! FAIL !!!!!!!!!!!!!!!!'
+
 .PHONY: web
 web:
 	@echo 
 	@echo 
-	@echo "UPDATING WEB PAGES"
+	@echo "UPDATING REVISION LOG WEB PAGES"
 	@echo 
-	@tools/update-web-download-page.sh "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv_download.adoc" "$(PRODUCT)" "$(VERSION_DEB)" "$(VERSION_DEB_FOR_ZIP)"  && echo && echo '>>>>>>>>>>>>>>> SUCCESS <<<<<<<<<<<<<<<<<<<<' ||  echo '!!!!!!!!!!!!!!!! FAIL !!!!!!!!!!!!!!!!'
-	cp arcv.css  "$(WEBSITE_DIR)/products/pages/"
-	av log --fmt=adoc --to=0 > "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv-cm-full-log.adoc"
+	cp arcv.css "$(WEBSITE_DIR)/products/pages/"
+	@# NOTE: it is not necessary to copy .css file into templates.release, because the above copied files will be copied there from gensite.sh
+	av log --fmt=adoc --from=$(shell av repo latest-release-rev) --to=0 > "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv-cm-full-log.adoc"
 	av rel --fmt=adoc > "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv-cm-release-log.adoc"
-	@if which arcv >/dev/null 2>/dev/null; then av diff --fmt=plain >/dev/null ; if [ $$? -eq 0 ] ; then av -y co README.asciidoc >/dev/null; fi ; fi
-	@echo 
-
 
 .PHONY: ftp
 ftp:

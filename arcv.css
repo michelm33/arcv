@@ -1,29 +1,22 @@
 /*
-    Release history table
+    Revision and Release history tables
 */
-.css-arcv-rel-table td {
+.css-arcv-hist-table td,
+.css-arcv-rel-hist-table td,
+.css-arcv-relhook-table td
+{
     padding: 0 0 0 0.5em;
 }
 
 /*
     Column 1 of revision history table
+    colX can be defined dynamically
 */
-.css-arcv-hist-col1 {
+.css-arcv-hist-col1,
+.css-arcv-rel-hist-col1,
+.css-arcv-relhook-col1
+ {
     word-wrap: normal;
     word-break: normal;
     text-wrap: nowrap;
 }
-
-/*
-    Revision history table
-*/
-.css-arcv-hist-table td {
-    padding: 0 0 0 0.5em;
-}
-
-
-/*
-css-arcv-rel-hist-colX
-*/
-
-

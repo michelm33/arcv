@@ -1,8 +1,8 @@
-ARCV(8)                 System Administration Utilities                ARCV(8)
+ARCV(1)                          User Commands                         ARCV(1)
 
 NAME
-       Arcv - arcv is a lightweight, easy-to-use revision control system which
-       keeps untouched the user's original source files and folders
+       Arcv  -  arcv is a rsync-based, easy-to-use revision control tool which
+       keeps intact users' files and directories
 
 SYNOPSIS
        arcv [OPTIONS] [COMMAND]
@@ -44,6 +44,10 @@ SYNOPSIS
 
               Display  the  hash signature for the head revision or the speci‐
               fied folder
+
+       hook  [FILE]
+
+              Create a release hook and lists the hook(s)
 
        list
 
@@ -266,30 +270,37 @@ COMMAND DETAILS
               ment is supplied.  Otherwise, computes the  hash  signature  for
               the passed directory path
 
+       hook [FILE]
+
+              Without  arguments,  lists the defined hook(s).  Otherwise, cre‐
+              ates a release hook with the passed executable that will be  run
+              whenever  a  release tag is created. It will ensure that hook as
+              the execution rights
+
        list
 
               Lists the existing source folders stored in the repository
 
        log [FILENAME]
 
-              Without  argument, shows the global commit history of the source
-              folder.  Otherwise, shows the commit history for  the  specified
-              file.   The  global  history is always shown from most recent to
-              the oldest in batches of 5.  The file-specific history is  shown
-              from  most  recent  to the oldest as a terminal menu, from which
+              Without argument, shows the global commit history of the  source
+              folder.   Otherwise,  shows the commit history for the specified
+              file.  The global history is always shown from  most  recent  to
+              the  oldest in batches of 5.  The file-specific history is shown
+              from most recent to the oldest as a terminal  menu,  from  which
               the changes can be checked against head revision
 
        meld [(REVISION | head | current)[vs(REVISION | RELEASE TAG)]]
 
-              Makes a diff with the specified revision using meld tool.   When
-              no  revision number is supplied, the head revision is considered
+              Makes  a diff with the specified revision using meld tool.  When
+              no revision number is supplied, the head revision is  considered
               by default.
 
        pub [RELEASE TAG:REVISION]
 
-              When no argument is supplied, creates a new release  by  tagging
-              the  head  revision  with  the  content of the VERSION.txt file.
-              Then it prompts the user for the next version and  updates  VER‐
+              When  no  argument is supplied, creates a new release by tagging
+              the head revision with the  content  of  the  VERSION.txt  file.
+              Then  it  prompts the user for the next version and updates VER‐
               SION.txt accordingly.
 
        rel
@@ -298,8 +309,8 @@ COMMAND DETAILS
 
        repo [INFONAME]
 
-              Displays  the specified information of the repository. Supported
-              values:  releases  latest-release-tag   latest-release-rev   ex‐
+              Displays the specified information of the repository.  Supported
+              values:   releases   latest-release-tag  latest-release-rev  ex‐
               clude-file exclusions src-dir rev-dir rev-hashfilepath rev-hash‐
               filename head-dir head-image-dir  git-repo size
 
@@ -313,7 +324,7 @@ COMMAND DETAILS
               revision.  When used without argument, creates a tarball for the
               current source folder, i.e. the current working directory.  When
               a revision number is supplied as argument, creates a tarball for
-              the specified revision.  In both cases, the current working  di‐
+              the  specified revision.  In both cases, the current working di‐
               rectory must be the root of the versioned folder.
 
 OPTIONS DETAILS
@@ -323,37 +334,37 @@ OPTIONS DETAILS
 
        --fix
 
-              This  option  enables  to explicitly fix the SHA fingerprint aka
-              hash code in case there's a mismatch between current source  and
-              the  stored  finger whilst no change was actually detected. This
-              can be useful when the internal hash computation  algorithm  may
-              change  or  could get anyhow broken because of an untested envi‐
-              ronment or an internal bug.  In any other case, this option  has
+              This option enables to explicitly fix the  SHA  fingerprint  aka
+              hash  code in case there's a mismatch between current source and
+              the stored finger whilst no change was actually  detected.  This
+              can  be  useful when the internal hash computation algorithm may
+              change or could get anyhow broken because of an  untested  envi‐
+              ronment  or an internal bug.  In any other case, this option has
               no effect.
 
        --from (REVISION | RELEASE_TAG)
 
-              Specifies  the most recent revision or release tag from which to
-              start the operation. A negative number N designates the Nth  re‐
+              Specifies the most recent revision or release tag from which  to
+              start  the operation. A negative number N designates the Nth re‐
               vision behind the head. At the moment, this option is only rele‐
               vant for the history logs.
 
        --silent
 
-              Silent mode. Hides messages which  are  usually  displayed  even
+              Silent  mode.  Hides  messages  which are usually displayed even
               when verbose mode is not active.
 
        --source DIRECTORY
 
-              Source  directory  to  checkout  from the repository. The source
-              folder to checkout can be specified with this option instead  of
+              Source directory to checkout from  the  repository.  The  source
+              folder  to checkout can be specified with this option instead of
               resolving the source folder from the current working directory.
 
        --to (REVISION | RELEASE_TAG)
 
-              Specifies  the oldest revision or release tag until which to ap‐
+              Specifies the oldest revision or release tag until which to  ap‐
               ply the operation.  A negative number N designates the Nth revi‐
-              sion  behind  the head. At the moment, this option is only rele‐
+              sion behind the head. At the moment, this option is  only  rele‐
               vant for the history logs.
 
        --verbose
@@ -362,14 +373,14 @@ OPTIONS DETAILS
 
        -F, --fmt FILE PATTERNS
 
-              Specifies the format of the output of a command. At the  moment,
-              this  option is only relevant for history logs and diffs.  There
+              Specifies  the format of the output of a command. At the moment,
+              this option is only relevant for history logs and diffs.   There
               iss no effect if the format is not supported by the applied com‐
               mand
 
        -X, --exclude FILE PATTERNS
 
-              Prevent  certain  file patterns to be checked in.  The file pat‐
+              Prevent certain file patterns to be checked in.  The  file  pat‐
               terns must be supplied as a coma-separated list of file patterns
 
        -f FILENAME
@@ -408,10 +419,10 @@ REPORTING BUGS
        Report bugs to <michel.mehl@slashetc.fr>
 
 COPYRIGHT
-       Copyright © 2024-2026 Michel Mehl.  All rights reserved.   Tous  droits
+       Copyright  ©  2024-2026 Michel Mehl.  All rights reserved.  Tous droits
        réservés (France).
 
        License terms written down in file LICENSE.txt Les termes de la licence
        sont détaillés dans le fichier LICENSE.txt
 
-Arcv 1.2.0                        August 2026                          ARCV(8)
+Arcv 1.2.1                      September 2026                         ARCV(1)

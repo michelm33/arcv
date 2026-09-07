@@ -1,3 +1,23 @@
+1.2.1
+
+  * New features
+
+      - implemented the 'hook' command to list or define a release hook, a program to run when creating new release tags
+      - added repo info release-dir and release-hooks
+
+  * Fixes
+
+    - No change was detected (no check-in possible) when only the permissions of folder(s) changed, now all perm changes are also checked right after the SHA256 computing (covering only files)
+    - Permission-only check is also now more reliable when multiple changes are implied. 
+    - Changed binary files not reported at check-in (display-only issue)
+    - Some invalid/undefined variable names were used
+    - 'av check' did not detect and handle permission-only changes
+    - Change man section from 8 to 1
+
+  * Improvs
+
+    - Faster check-in process
+
 1.2.0
 
   * New features
@@ -32,7 +52,7 @@
           > head-image-dir: directory path of the full head image 
           > git-repo: directory path of the git repo in the repository, used to export source images
           > size: total size of the data occupied for the source in the repository
-    - --fix to recompute to recompute hash for current image
+    - --fix to recompute hash for current image
 
   * Improvs
 

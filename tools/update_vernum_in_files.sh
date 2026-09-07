@@ -1,7 +1,7 @@
 #!/bin/bash
 ###############################################################################
 #
-# Arcv tester - test suite maintenance script to update version nums before release
+# Arcv - maintenance script to update version nums before release
 #
 # Copyright (c) 2024-2026 Michel Mehl. All rights reserved.
 #

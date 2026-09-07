@@ -1,5 +1,5 @@
 arcv /usr/bin/arcv
-arcv.8 /usr/bin/arcv
+arcv.1 /usr/bin/arcv
 arcv.css /usr/bin/arcv
 arcv__debug.sh /usr/bin/arcv
 arcv__help.sh /usr/bin/arcv

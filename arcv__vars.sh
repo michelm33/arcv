@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__vars.sh
-# Release file date: 2026-08-28 00:37
-# App version: 1.2.0
-# App source revision: 299
-# App source signature: 10b23adcc37dc4efe21cfd1444afadadbd879990635ca589d3b37377cfb56b8a
-# Source file last modification: 2026-08-24 11:37:50.073024003 +0200
+# Release file date: 2026-09-06 23:54
+# App version: 1.2.1
+# App source revision: 317
+# App source signature: 08decfca3e559820c93cb0da7d288b9d0b8ca2dfd533a76a3449d2a1bc4e748d
+# Source file last modification: 2026-09-06 14:14:28.283704499 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -108,3 +108,5 @@ ARCV__VARS["to_rev_or_tag"]=""
 ARCV__VARS["plain-output-mode"]=false
 
 ARCV__VARS["paging"]=""
+ARCV__VARS["hook"]=""
+ARCV__VARS["releasehooks"]=false
