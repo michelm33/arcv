@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__vars.sh
-# Release file date: 2026-09-06 23:54
-# App version: 1.2.1
-# App source revision: 317
-# App source signature: 08decfca3e559820c93cb0da7d288b9d0b8ca2dfd533a76a3449d2a1bc4e748d
-# Source file last modification: 2026-09-06 14:14:28.283704499 +0200
+# Release file date: 2026-10-01 19:24
+# App version: 1.2.2
+# App source revision: 329
+# App source signature: 9ab13ef51cb2ac357a9ae24145510bafb6579b3d81fa78ac0cfb103ee1602b7a
+# Source file last modification: 2026-09-30 16:48:11.172288564 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -52,6 +52,7 @@ ARCV__VARS["headversion"]=""                            # Points to the head rev
 ARCV__VARS["headrev"]=""                                # Gives the revision number of the head
 ARCV__VARS["droppedsrc"]=""
 
+ARCV__VARS["changelog"]=false
 ARCV__VARS["copy"]="rsync"
 ARCV__VARS["copy_opt"]="-a -X --info=NAME1 --out-format=%n"
 ARCV__VARS["copy_opt_intern"]="-a -X"

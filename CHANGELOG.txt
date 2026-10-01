@@ -1,3 +1,17 @@
+1.2.2
+
+  * New features
+
+    - new "changelog" command to display log till the last release; fixed doc of --fmt option
+
+  * Fixes
+
+    - fixed empty dirs not pruned in newly created revision archive folder, in complex file trees this could lead to unnecessary filesystem entries creation
+    - fixed use of base32 when building autopath for repository mount, since base32's output wraps with newlines after 76 chars
+    - at check-in, the source directory in repository was resolved only on a basis of a matching hostname/MAC entry in the ROOT file. 
+      Now the complete original source path on the hostname is also considered. This solves the issue of launching arcv in a subdir of a source, 
+      which also matches another source directory existing in the repository.
+  
 1.2.1
 
   * New features

@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__options.sh
-# Release file date: 2026-09-06 23:54
-# App version: 1.2.1
-# App source revision: 317
-# App source signature: 08decfca3e559820c93cb0da7d288b9d0b8ca2dfd533a76a3449d2a1bc4e748d
-# Source file last modification: 2026-09-03 18:23:05.287997951 +0200
+# Release file date: 2026-10-01 19:24
+# App version: 1.2.2
+# App source revision: 329
+# App source signature: 9ab13ef51cb2ac357a9ae24145510bafb6579b3d81fa78ac0cfb103ee1602b7a
+# Source file last modification: 2026-09-30 17:39:36.450270225 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -593,11 +593,14 @@ ARCV__OPTION_LIST_ENUM["repo"]='release-dir release-hooks releases latest-releas
 ARCV__OPTION_LIST_SDESC["-F|--fmt"]='Specifies the output format'
 
 ARCV__OPTION_LIST_DESC["-F|--fmt"]='
-Specifies the format of the output of a command. At the moment, this option is only relevant for history logs and diffs.
-There iss no effect if the format is not supported by the applied command
+Specifies the format of the output of a command. Possible values : "plain" for raw text without any color nor layout formatting. "adoc" for AsciiDoc format.
+
+By default when no format is specified, the text may be colored and the text blocks may be arranged to be more readable.
+
+At the moment, this option is only relevant for history logs and diffs. There is no effect if the format is not supported for the applied command
 '
 ARCV__OPTION_LIST_ARGS["-F|--fmt"]="0" 
-ARCV__OPTION_LIST_ARGS_TYPE["-F|--fmt"]="FILE PATTERNS"
+ARCV__OPTION_LIST_ARGS_TYPE["-F|--fmt"]="'adoc' | 'plain'"
 ARCV__OPTION_LIST_ACTI["-F|--fmt"]=""
 ARCV__OPTION_LIST_VALS["-F|--fmt"]='
 local lowArg="${__myarg}"
@@ -644,6 +647,19 @@ In any other case, this option has no effect.
 "
 ARCV__OPTION_LIST_ARGS["--fix"]="1"
 ARCV__OPTION_LIST_ACTI["--fix"]='ARCV__VARS["fix-hash"]=true'
+
+
+
+ARCV__OPTION_LIST_SDESC["changelog"]="Display the history log since last release"
+ARCV__OPTION_LIST_DESC["changelog"]="
+Display the history log since last release
+"
+ARCV__OPTION_LIST_ARGS["changelog"]="1"
+ARCV__OPTION_LIST_ACTI["changelog"]='
+ARCV__VARS["checkin"]=false
+ARCV__VARS["revisionlog"]=true
+ARCV__VARS["changelog"]=true
+'
 
 
 # implement that later

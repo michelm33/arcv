@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv
-# Release file date: 2026-09-06 23:54
-# App version: 1.2.1
-# App source revision: 317
-# App source signature: 08decfca3e559820c93cb0da7d288b9d0b8ca2dfd533a76a3449d2a1bc4e748d
-# Source file last modification: 2026-09-06 19:09:56.696173894 +0200
+# Release file date: 2026-10-01 19:24
+# App version: 1.2.2
+# App source revision: 329
+# App source signature: 9ab13ef51cb2ac357a9ae24145510bafb6579b3d81fa78ac0cfb103ee1602b7a
+# Source file last modification: 2026-10-01 19:13:30.152738512 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -416,7 +416,7 @@ Arcv__createRevision()
         fi
     fi
 
-    local cmd="${ARCV__VARS["copy"]} ${ARCV__VARS["copy_opt"]} "${__inExcludeFilesCmd}" '${ARCV__VARS["backupsrc"]}' '${ARCV__VARS["backupappversiontarget"]}/'"
+    local cmd="${ARCV__VARS["copy"]} --prune-empty-dirs ${ARCV__VARS["copy_opt"]} "${__inExcludeFilesCmd}" '${ARCV__VARS["backupsrc"]}' '${ARCV__VARS["backupappversiontarget"]}/'"
     _log_dbg "COMMAND: $cmd"
 
     #if $silent ; then Term__moveCursorUp 1 ; fi
@@ -2655,17 +2655,22 @@ Arcv__checkRootDir()
                 storedRootPath="${storedRoots[${storedRootHostNameAndMAC}]}"
                 #_log_vars storedRootHostNameAndMAC  storedRootPath
 
+                local storedDataFields=()
+                Array__fromString "${storedRootHostNameAndMAC}" "/" storedDataFields
+
+                # An entry exists for localhost with a matching MAC
                 if [ "${storedRootHostNameAndMAC}" = "${ARCV__VARS["localHostName"]}/${ARCV__VARS["localHostMAC"]}" ] ; then
-                    found=true
-                    break
-                #else
-                #    _log "expectedRoot does not exist"
+                    # Also check the backup src path
+                    if  [ "${storedRootPath}" = "${backupSrc}" ] ; then
+                        found=true
+                        break
+                    else
+                        continue
+                    fi
                 fi
 
                 # Check if a registered source exists for the same host
                 # but a different MAC
-                local storedDataFields=()
-                Array__fromString "${storedRootHostNameAndMAC}" "/" storedDataFields
                 #_log_vars storedDataFields[0] storedDataFields[1] storedRootPath ARCV__VARS["localHostName"] ARCV__VARS["localHostMAC"] backupSrc
                 if [ "${storedDataFields[0]}" = "${ARCV__VARS["localHostName"]}" ] &&  [ "${storedRootPath}" = "${backupSrc}" ] ; then
                     #_log_dbg "NOT FOUND BUT same hostname entry found $storedRootHostNameAndMAC. must add ${ARCV__VARS["localHostMAC"]}"
@@ -2942,7 +2947,7 @@ Arcv__resolveStoragePath()
             fi
 
             _loadDep "base32@coreutils" # Base 32 can not contain "/" char, whereas base64 can contain slashes
-            storage="$HOME/.mnt-arcv-$(echo "${storage}"|base32)"
+            storage="$HOME/.mnt-arcv-$(echo "${storage}"|base32 -w 0)"
             #_log_vars  storage 
             if ! findmnt --mountpoint "${storage}" &>/dev/null ; then
 
@@ -4632,7 +4637,7 @@ EOF
 
 :<<'EOF'
 if ! ${ARCV__VARS["rev"]} ; then # debug
-_log_vars headRevFile  
+_log_vars headRevFile arcVersion 
 _log "ARCV__VARS["backupsrc"]: ${ARCV__VARS["backupsrc"]}"
 _log "diff_rev : '${ARCV__VARS["diff_rev"]}'"
 fi
@@ -4652,7 +4657,6 @@ EOF
     # In other case, arcVersion applicable for the operation is determined by ARCV__VARS["diff_rev"] 
     # 
     if ${ARCV__VARS["checkin"]} || ${ARCV__VARS["rev"]} || ${ARCV__VARS["hash"]}; then
-
         # In this 'if' case the arcVersion wil point to the next virtual version to create the new version. 
         # For "rev" request, it will be corrected by -1, it is handled here
         # to allow the guess out dynamically current revision reusing the 'else' block
@@ -4808,30 +4812,52 @@ EOF
     # Actual command execution
     #
     if ${ARCV__VARS["revisionlog"]} ; then
-        local fromRevValue="${ARCV__VARS[from_rev_or_tag]}"
+        local fromRevValue="${ARCV__VARS[from_rev_or_tag]}" # If empty, it will start from arcVersion
         local toRevValue="${ARCV__VARS[to_rev_or_tag]}"
+        local paging="${ARCV__VARS[paging]}"  # less
+        local interactive=false
+        if Input__testYesForcedInput ; then interactive=true; fi
 
-        local revWindow=""
-        YAML__get ".revision-history-window" revWindow 
-        if Str__isEmpty "${fromRevValue}" && Str__isEmpty "${toRevValue}" && ! Str__isEmpty "${revWindow}"  ; then
-            if ! Int__isInt "${revWindow}" ; then _susage "'$revWindow' is not a valid revision window number. Please fix the configuration file.";  fi
-            toRevValue=$(( $arcVersion - ${revWindow} ))
-            if [ $toRevValue -lt 0 ] ; then toRevValue=0 ; fi
-        else
-            if ! Str__isEmpty "${fromRevValue}" ; then
-                Str__trimStart "$fromRevValue" fromRevValue "\\" 
-                if ! Int__isInt "${fromRevValue}" ; then _susage "'$fromRevValue' is not a valid start revision number";  fi
-                if [ ${fromRevValue} -lt 0 ] ; then
-                    fromRevValue=$(( $arcVersion + ${fromRevValue} ))
+        if ${ARCV__VARS["changelog"]} ; then   # ARCV__VARS["revisionlog"] is also set
+            if ! Arcv__getInfoLatestReleaseTagRevision toRevValue ; then
+                toRevValue=0 # If no release exists yet, go to 0
+            else
+                if Int__eq $arcVersion $toRevValue ; then
+                    # This is the specific case where current revision is the last released tagged revision.
+                    # There is no thing to display
+                    local releaseTag
+                    Arcv__getInfoLatestReleaseTag releaseTag
+
+                    _quit "Current revision matches latest release tag $releaseTag. No changes to show."
+                else
+                    toRevValue=$(($toRevValue + 1))
                 fi
             fi
 
-            if ! Str__isEmpty "${toRevValue}" ; then
-                Str__trimStart "$toRevValue" toRevValue "\\" 
-                if ! Int__isInt "${toRevValue}" ; then _susage "'$toRevValue' is not a valid end revision number";  fi
+            paging="" # disable paging with less
+        else
+            local revWindow=""
+            YAML__get ".revision-history-window" revWindow 
+            if Str__isEmpty "${fromRevValue}" && Str__isEmpty "${toRevValue}" && ! Str__isEmpty "${revWindow}"  ; then
+                if ! Int__isInt "${revWindow}" ; then _susage "'$revWindow' is not a valid revision window number. Please fix the configuration file.";  fi
+                toRevValue=$(( $arcVersion - ${revWindow} ))
+                if [ $toRevValue -lt 0 ] ; then toRevValue=0 ; fi
+            else
+                if ! Str__isEmpty "${fromRevValue}" ; then
+                    Str__trimStart "$fromRevValue" fromRevValue "\\" 
+                    if ! Int__isInt "${fromRevValue}" ; then _susage "'$fromRevValue' is not a valid start revision number";  fi
+                    if [ ${fromRevValue} -lt 0 ] ; then
+                        fromRevValue=$(( $arcVersion + ${fromRevValue} ))
+                    fi
+                fi
 
-                if [ ${toRevValue} -lt 0 ] ; then
-                    toRevValue=$(( $arcVersion + ${toRevValue} ))
+                if ! Str__isEmpty "${toRevValue}" ; then
+                    Str__trimStart "$toRevValue" toRevValue "\\" 
+                    if ! Int__isInt "${toRevValue}" ; then _susage "'$toRevValue' is not a valid end revision number";  fi
+
+                    if [ ${toRevValue} -lt 0 ] ; then
+                        toRevValue=$(( $arcVersion + ${toRevValue} ))
+                    fi
                 fi
             fi
         fi
@@ -4851,15 +4877,32 @@ EOF
         fi
 
         histCmd+="'${fromRevValue}' ${toRevValue}"
-        if Input__testYesForcedInput ; then
+        if $interactive ; then # If 'y', it means interactive mode
             :
             #_log "Please wait, this may take some time"
             #_log "You can use option -to=-<N> to limit the revision window to the Nth revision behind the head."
-        elif Str__isEmpty "${ARCV__VARS["output_format"]}" && ! Str__isEmpty "${ARCV__VARS["paging"]}" ]; then
-                histCmd+=" ${ARCV__VARS[paging]}"
+        elif Str__isEmpty "${ARCV__VARS["output_format"]}" && ! Str__isEmpty "${paging}" ]; then
+                histCmd+=" ${paging}"
         fi
-        eval "$histCmd"
+        
+        if ! eval "$histCmd" ; then
+            return 1
+        fi
 
+        # For change log, display last release revision if any, but only when  :
+        # - NOT in interactive mode
+        # - NOT in another format than default 
+        # - there exists at least one release 
+        if ${ARCV__VARS["changelog"]} && ! $interactive && (Str__isEmpty "${ARCV__VARS["output_format"]}" || Str__same "${ARCV__VARS["output_format"]}" "plain") && ! Str__isEmpty "${toRevValue}" ; then
+            local revisionText=$(( $toRevValue - 1))
+            local releaseTag
+            Arcv__getInfoLatestReleaseTag releaseTag
+            Arcv__setColor revisionText green_bold
+            Arcv__setColor releaseTag white_reverse
+            local newLine=""
+            Arcv__getLogLine newLine "${__inFormat}" " " "css-arcv-hist-col" "$revisionText" "${releaseTag}" ""
+            echo -e "$newLine" 
+        fi
     elif ${ARCV__VARS["releasehooks"]} ; then
         local cmd="Arcv__showReleaseHooks"        
         eval "$cmd"

@@ -13,6 +13,10 @@ SYNOPSIS
 
               Branch off a revision
 
+       changelog
+
+              Display the history log since last release
+
        check
 
               Tell whether there are uncommitted modifications
@@ -116,7 +120,7 @@ SYNOPSIS
 
               Verbose mode
 
-       -F, --fmt =FILE PATTERNS
+       -F, --fmt ='adoc' | 'plain'
 
               Specifies the output format
 
@@ -224,6 +228,10 @@ COMMAND DETAILS
        branch BRANCH_FOLDER[:REVISION | RELEASE TAG]
 
               Branch off a revision.
+
+       changelog
+
+              Display the history log since last release
 
        check
 
@@ -371,12 +379,18 @@ OPTIONS DETAILS
 
               Verbose mode
 
-       -F, --fmt FILE PATTERNS
+       -F, --fmt 'adoc' | 'plain'
 
-              Specifies  the format of the output of a command. At the moment,
-              this option is only relevant for history logs and diffs.   There
-              iss no effect if the format is not supported by the applied com‐
-              mand
+              Specifies the format of the output of a command. Possible values
+              : "plain" for raw text without any color nor layout  formatting.
+              "adoc" for AsciiDoc format.
+
+              By  default when no format is specified, the text may be colored
+              and the text blocks may be arranged to be more readable.
+
+              At the moment, this option is only relevant for history logs and
+              diffs. There is no effect if the format is not supported for the
+              applied command
 
        -X, --exclude FILE PATTERNS
 
@@ -425,4 +439,4 @@ COPYRIGHT
        License terms written down in file LICENSE.txt Les termes de la licence
        sont détaillés dans le fichier LICENSE.txt
 
-Arcv 1.2.1                      September 2026                         ARCV(1)
+Arcv 1.2.2                       October 2026                          ARCV(1)

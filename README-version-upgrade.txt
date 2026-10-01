@@ -4,12 +4,14 @@ Changes to apply when changing version:
 
 - CHANGELOG
 
-- Define shell api dependency
+- Define shell api dependency, in terminal before release generation next
   * To use latest version of shellapi:
       unset SHELLAPI_VERSION    # to be sure var is not defined
       <generate a release of shellapi> 
   * To use a version of shellapi different of the current one e.g. v1.1.2 (change to the actual version number):
+      <Create a symlink of shell-api to the release folder of the version>
       export SHELLAPI_VERSION=1.1-2
+   
 
 - Generate a release :
     make release'
