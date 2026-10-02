@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv
-# Release file date: 2026-10-02 03:17
+# Release file date: 2026-10-02 04:38
 # App version: 1.2.2
-# App source revision: 333
-# App source signature: 4bef88895387a0d0eede279d0ee2242c06b807782284f9c8142e0f677cdc65d5
-# Source file last modification: 2026-10-02 03:15:26.641161252 +0200
+# App source revision: 336
+# App source signature: 5fea20a0a92aed1f008acfc37d59c04a454659594aaf860b4d18b60818b8715e
+# Source file last modification: 2026-10-02 04:15:51.812453427 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -732,7 +732,7 @@ ${relRecordsDisplay}"
             ;;
         esac
 
-        Arcv__printHistLogTrailer # This should be passed but is only relevant for adoc anyway"${__inFormat}"
+        Arcv__printHistLogTrailer "${__inFormat}" # This should be passed but is only relevant for adoc anyway"${__inFormat}"
     fi
 }
 
@@ -827,7 +827,7 @@ ${relhookRecordsDisplay}"
         ;;
     esac
 
-    Arcv__printHistLogTrailer # This should be passed but is only relevant for adoc anyway"${__inFormat}"
+    Arcv__printHistLogTrailer "${__inFormat}" # This should be passed but is only relevant for adoc anyway"${__inFormat}"
 }
 
 :<<'EOF'
@@ -851,7 +851,7 @@ Arcv__showHistory()
         return 1
     fi
 
-    Arcv__printHistLogHeader        
+    Arcv__printHistLogHeader "$__inFormat" 
 
     local cnt=0
     local scanVersion=$fromVersion
@@ -948,7 +948,7 @@ $newLine"
     # If not interactive exit immediately. The display is done
     # progressively above
     if ! Input__testYesForcedInput ; then  
-        Arcv__printHistLogTrailer
+        Arcv__printHistLogTrailer "${__inFormat}"
         return 0
     fi
 
@@ -1008,12 +1008,15 @@ Arcv__showFileHistory()
     local __inCurrentVersion="$2"
     local fromVersion="$3"  # If release will be converted to rev num
     local toVersion="$4"    # If release will be converted to rev num
+    local inFormat=""
+
+    if [ -z "${__inFormat}" ] ; then __inFormat="${ARCV__VARS["output_format"]}"; fi
 
     if ! Arcv__histLogVersionCheck __inCurrentVersion fromVersion toVersion ; then 
         return 1
     fi
 
-    Arcv__printHistLogHeader        
+    Arcv__printHistLogHeader "$__inFormat" 
 
     local __revisionlog_file=$1
     local cnt=0
@@ -1145,7 +1148,7 @@ $historyMissing
 EOF
 
     if ! Input__testYesForcedInput ; then
-        Arcv__printHistLogTrailer
+        Arcv__printHistLogTrailer "${__inFormat}"
         return 0
     fi
 
@@ -1225,10 +1228,12 @@ Arcv__histLogVersionCheck()
 }
 
 Arcv__printHistLogHeader()
-{
+{    
+    local __inFormatHeader="$1"
+
     if Input__testYesForcedInput ; then return 0;  fi
 
-    case "${ARCV__VARS["output_format"]}" in
+    case "${__inFormatHeader}" in
     adoc)
         printf "%s\n" "
 [%autowidth,frame=noframe,grid=nogrid,role=\"css-arcv-hist-table\"]
@@ -1252,9 +1257,11 @@ Arcv__printHistLogHeader()
 
 Arcv__printHistLogTrailer()
 {
+    local __inFormatHeader="$1"
+
     if Input__testYesForcedInput ; then return 0;  fi
 
-    case "${ARCV__VARS["output_format"]}" in
+    case "${__inFormatHeader}" in
     adoc)
         printf "%s\n" "
 |===
@@ -2135,6 +2142,10 @@ EOF
 
     #_log_vars latestRelTag latestRelLog
     if Str__isEmpty "$logMessage" ; then
+
+        # Take as default the last log
+        Arcv__getInfoCurrentRevisionLog logMessage
+        #_log_vars logMessage
         if ! Input__sentence "Enter commit log" "$logMessage" logMessage ; then
             echo
             _log_err "Aborted"
@@ -4222,6 +4233,46 @@ Arcv__getInfoLatestReleaseLog()
         local texts=${fullEntry[@]:2}
         Array__toString texts " " "${!__outLog}"
     fi
+}
+
+
+:<<'EOF'
+Returns the log of the current revision
+@param[1] ref to the var used to store the returned value
+Return 1 if invalid revision specified (no revision number found)
+EOF
+
+Arcv__getInfoCurrentRevisionLog()
+{
+    local -n __outLog=$1
+    local curRev=$($0 rev)
+    local yesInputForced=false
+    local verboseActive=false
+    local history=""
+    
+    if Input__testYesForcedInput ; then 
+        yesInputForced=true
+        Input__popForcedInput
+    fi
+
+    if ${ARCV__VARS["verbose"]} ; then 
+        ARCV__VARS["verbose"]=false
+        verboseActive=true
+    fi
+
+    #_log_dbg "'$(Arcv__showHistory $curRev $curRev $curRev plain)'"
+    history="$(Arcv__showHistory $curRev $curRev $curRev plain)"
+    local fullEntry=()
+    Array__fromString "$history" " " fullEntry
+    local texts=${fullEntry[@]:3}
+    Array__toString texts " " "${!__outLog}"
+
+    # Restore initial states
+    if ${yesInputForced} ; then Input__pushForcedInput "y"; fi
+    if ${verboseActive} ; then ARCV__VARS["verbose"]=true; fi
+
+    verboseActive=false
+    yesInputForced=false
 }
 
 

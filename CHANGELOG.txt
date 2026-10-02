@@ -4,6 +4,7 @@
 
     - new "changelog" command to display log till the last release; fixed doc of --fmt option
     - extended 'export' command with the auto-creation of git tag based on arcv's last release tag and tag log on user request
+      Otherwise, the log of the last revision is proposed by default
 
   * Fixes
 
