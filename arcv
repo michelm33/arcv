@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv
-# Release file date: 2026-10-01 19:24
+# Release file date: 2026-10-02 03:17
 # App version: 1.2.2
-# App source revision: 329
-# App source signature: 9ab13ef51cb2ac357a9ae24145510bafb6579b3d81fa78ac0cfb103ee1602b7a
-# Source file last modification: 2026-10-01 19:13:30.152738512 +0200
+# App source revision: 333
+# App source signature: 4bef88895387a0d0eede279d0ee2242c06b807782284f9c8142e0f677cdc65d5
+# Source file last modification: 2026-10-02 03:15:26.641161252 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -45,6 +45,7 @@ eval $_loadm<<<'shell-api-yaml'
 eval $_loadm<<<'shell-api-net'
 eval $_loadm<<<'shell-api-sys'
 eval $_loadm<<<'shell-api-packing'
+eval $_loadm<<<'shell-api-git'
 eval $_loada<<<'arcv__vars.sh'
 eval $_loada<<<'arcv__options.sh'
 eval $_loada<<<'arcv__help.sh'
@@ -2106,8 +2107,44 @@ EOF
         git branch --set-upstream-to=origin/main main &>/dev/null
     fi
     #exit 0
-    local logMessage="Release ${ARCV__VARS["export_rev"]}"
-    if Input__sentence "Enter commit log" "$logMessage" logMessage ; then
+    
+    # Get release log from arcv
+
+    local logMessage=""
+    local latestRelTag=""
+    local doGitTag=false
+    if Arcv__getInfoLatestReleaseTag latestRelTag ; then
+        local latestRelLog=""
+        local latestRelLogShown=""
+        Arcv__getInfoLatestReleaseLog latestRelLog
+        _log_vars latestRelLog
+        latestRelLogShown="$latestRelLog"
+        Str__fitToLineWidth latestRelLogShown 80                
+        Str__indent 4 latestRelLogShown
+        echo
+        echo -e "Last release is $(_colorText "$latestRelTag" white blue), its log is : "
+        echo
+        echo -e "$(_colorText "$latestRelLogShown" italic normal)"
+        echo
+        if Input__confirm_high "Do you want to use the same log for the git commit and create the same git tag" ; then
+            logMessage="$latestRelLog"
+            doGitTag=true
+        fi        
+        echo
+    fi
+
+    #_log_vars latestRelTag latestRelLog
+    if Str__isEmpty "$logMessage" ; then
+        if ! Input__sentence "Enter commit log" "$logMessage" logMessage ; then
+            echo
+            _log_err "Aborted"
+            popd &>/dev/null
+            _exit -1 ""
+        fi
+        echo
+    fi
+
+    if ! Str__isEmpty "$logMessage" ; then
         # Pull may fail if no commit yet
         git pull origin main &>/dev/null
 
@@ -2117,8 +2154,17 @@ EOF
         _log_high "Git commit files"
         git commit -m "${logMessage}"
 
+        if $doGitTag ; then
+            _log_high "Git creating tag '$latestRelTag'"
+            local lastCommitHash=$(git rev-parse HEAD 2>/dev/null)
+            if ! git__tag "$latestRelTag" "$logMessage" true ; then
+                _log_warn "Tagging failed."
+            fi
+        fi
+
         _log_high "Git pushing to origin"
         git push origin main
+
 
         popd &>/dev/null
         _quit ""
@@ -4136,8 +4182,7 @@ Arcv__getInfoReleaseTagRevision()
 
 :<<'EOF'
 Returns the revision of the latest release tag
-@param[1] release tag
-@param[2] ref to the var used to store the returned value
+@param[1] ref to the var used to store the returned value
 Return 1 if invalid release tag specified (no revision number found)
 EOF
 
@@ -4152,6 +4197,30 @@ Arcv__getInfoLatestReleaseTagRevision()
         return 1
     else        
         __outRev="$(echo "$tagRev" | awk -F' '  '{ printf("%s",$2); }' )"
+    fi
+}
+
+:<<'EOF'
+Returns the log of the latest release tag
+@param[1] ref to the var used to store the returned value
+Return 1 if invalid release tag specified (no revision number found)
+EOF
+
+Arcv__getInfoLatestReleaseLog()
+{
+    local -n __outLog=$1
+    local tagRev=""
+    local relhistory="$(Arcv__showReleaseHistory false plain)"
+    read tagRev < <(echo "${relhistory}" | head -n1)
+    if Str__startsWith "$tagRev" "No release" ; then
+        __outLog=""
+        return 1
+    else        
+        #__outLog="$(echo "$tagRev" | awk -F' '  '{ printf("%s",$2); }' )"
+        local fullEntry=()
+        Array__fromString "$tagRev" " " fullEntry
+        local texts=${fullEntry[@]:2}
+        Array__toString texts " " "${!__outLog}"
     fi
 }
 
