@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__vars.sh
-# Release file date: 2026-10-02 04:38
-# App version: 1.2.2
-# App source revision: 336
-# App source signature: 5fea20a0a92aed1f008acfc37d59c04a454659594aaf860b4d18b60818b8715e
-# Source file last modification: 2026-09-30 16:48:11.172288564 +0200
+# Release file date: 2026-10-25 20:11
+# App version: 2.0.0
+# App source revision: 397
+# App source signature: c2611dc49f82084f15e5e4ce636132e150e50807672d858fde255dd1be30c96a
+# Source file last modification: 2026-10-24 17:20:14.470850501 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -52,6 +52,8 @@ ARCV__VARS["headversion"]=""                            # Points to the head rev
 ARCV__VARS["headrev"]=""                                # Gives the revision number of the head
 ARCV__VARS["droppedsrc"]=""
 
+ARCV__VARS["isFetchURL"]=false
+ARCV__VARS["force-refresh"]=false
 ARCV__VARS["changelog"]=false
 ARCV__VARS["copy"]="rsync"
 ARCV__VARS["copy_opt"]="-a -X --info=NAME1 --out-format=%n"
@@ -111,3 +113,14 @@ ARCV__VARS["plain-output-mode"]=false
 ARCV__VARS["paging"]=""
 ARCV__VARS["hook"]=""
 ARCV__VARS["releasehooks"]=false
+ARCV__VARS["cm-cfg"]=""
+ARCV__VARS["fetch-update"]=false
+ARCV__VARS["fetch-only"]=false
+ARCV__VARS["remove-after-direct-fetch-commit"]=false
+ARCV__VARS["revision-cycle"]=0
+ARCV__VARS["cycle-save"]=false
+ARCV__VARS["push"]=false
+ARCV__VARS["push-arg"]=""
+ARCV__VARS["revision-interval"]=0
+ARCV__VARS["force-commit"]=false
+ARCV__VARS["revive"]=false

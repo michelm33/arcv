@@ -26,6 +26,8 @@ Changes to apply when changing version:
     av -y
     make release
 
+- Run arcv-test --CU to update files inside the test container, in particular to have the correct install_arcv.sh and install_arcv-test
+
 - Run all tests
 
 - Tag the release once the release has been successfully tested:

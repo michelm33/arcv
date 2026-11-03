@@ -209,7 +209,8 @@ web:
 	@echo 
 	@echo "UPDATING REVISION LOG WEB PAGES"
 	@echo 
-	cp arcv.css "$(WEBSITE_DIR)/products/pages/"
+	rsync -a arcv.css "$(WEBSITE_DIR)/products/pages/"
+	rsync -a CHANGELOG.txt "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv_changelog.adoc"
 	@# NOTE: it is not necessary to copy .css file into templates.release, because the above copied files will be copied there from gensite.sh
 	av log --fmt=adoc --from=$(shell av repo latest-release-rev) --to=0 > "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv-cm-full-log.adoc"
 	av rel --fmt=adoc > "$(WEBSITE_DIR)/developertoolsforlinux/pages/_topics/arcv/arcv-cm-release-log.adoc"

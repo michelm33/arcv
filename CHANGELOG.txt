@@ -1,3 +1,46 @@
+
+2.0.0
+
+  * New features
+
+    - Circular backups : the --cycle option to define the number of revisions after which the revision number shall wrap around to restart from 0. 
+      Each circular revision contains all data not only the differences compared with previous version
+    - Circular backups with additional backup of last cycle revision:  additionally to regular circular backups, makes copies of the last cycle revisions 
+      (before wrap around) in a separate directory in the repository, which name is the name of the source prefixed with "-cycles". 
+      The "-cycles" can be checked out like any other source to retrieve the successive backup revisions.
+    - --force :Force creation of a new, empty revision even when there is no change. Most like useful for timeline-based backup
+    - --interval: Allow a new revision only if the given time interval since last revision was respected  for timeline-based backup
+    - Automatic fetching from URI: fetch data from an URI before initiating check-in. At the moment MongoDB URI are supported only (mongo dump archive).
+    - Pushing of data to an URI: pushd back previously fetch data to an URI, typically for the sake of restoring a backup. MongoDB URI only.
+    - --rm : enables to check in new fetched data without leaving a local image behind
+    - Enabling the commit into an external existing or new source in the repository using --source
+    - Revision log edition function in interactive revision history menu, activable by defining 'editor' parameter in config
+    - New repo infos 'ishead', 'head-rev', 'fetch-url',
+    - Output of 'list' includes now the size occupation of source folders: size value + proportion bar compared with other sources
+    - Title of source list now displays hostname, LAN IP and public IP
+    - Added standard options of genapp (--log, --files etc), 
+    - Support of --cm-cfg option to update the source config in repo (.yml). Only used internally at the moment.
+    - Allowing destroy to run auto when passing -yy
+
+  * Fixes
+
+    - When a file of the same name was appearing twice at 2 different locations in the file tree, both could  get removed when removing either one. 
+      This is in relation with a better internal use of exclusions with rsync regarding unchanged files      
+    - bug fix of changelog when some commits were done but not release tag yet; 
+    - fixed functions defined for retrieving release related info when no release tag was created yet (returned 0 with "" info instead of 1)
+
+  * Improvs/extensions
+
+    - Improved the way files are checked in with rsync, whereby only paths relative to the source folder name 
+      (and not including its name itself) are internallty used. Consequently, files listed in DROPPED file starts 
+      with '/' followed by the relative path. Retro-compatibility is handled.  
+    - Changed date format in "list" command to be more friendly
+    - Code improvs/refactoring, higher modularity
+    - Better display info for explicit rev or tag
+    - Handling error case when output folder specified for check-in 
+    - Updated commands/options doc
+    - Worked out CHANGELOG to adoc format to make it usable in online documentation
+
 1.2.2
 
   * New features
@@ -18,8 +61,8 @@
 
   * New features
 
-      - implemented the 'hook' command to list or define a release hook, a program to run when creating new release tags
-      - added repo info release-dir and release-hooks
+    - implemented the 'hook' command to list or define a release hook, a program to run when creating new release tags
+    - added repo info release-dir and release-hooks
 
   * Fixes
 
@@ -41,40 +84,45 @@
     - Random revision tagging: added command 'av pub TAG:REVISION' to create tags on a random revision
     - --from and --to options to select only a range of revision for the 'av log' command (history and files)
     - '-l' option for carrying out a dry check-in listing only updated files (like a git status)
-    - Addons in changed file menu at check-in
-        > 'diff' checking now also available on <ENTER> via menu at check-in when meld is not available:
+    - Addons in changed file menu at check-in:
+
+        ** 'diff' checking now also available on <ENTER> via menu at check-in when meld is not available.
            a terminal window is popping up showing the differences with git or diff. The popup is auto closed when then exiting menu. 
            Smart diff with context and colors
-        > 'diff' can also always be chosen explicitly instead of meld using 'd' key in menu (line-by-line diff)
-        > '<r>estore' menu option, to checkout and restore a changed file
-        > '<R>eset' menu option to reset current image to the head (like a git reset --hard)
+        ** 'diff' can also always be chosen explicitly instead of meld using 'd' key in menu (line-by-line diff)
+        ** '<r>estore' menu option, to checkout and restore a changed file
+        ** '<R>eset' menu option to reset current image to the head (like a git reset --hard)
     - In release list menu, added menu action 'w' to view matching log messages
     - --fmt=plain option for log and diff:
-        > Enables to display history without text formatting 
-        > When diffing with the 'diff' tool, the configuration param 'plain-diff-args' is used instead of the 'diff-diff-args' to enable initial diff behavior in arcv (without popup , nor context and colors)
+
+        ** Enables to display history without text formatting 
+        ** When diffing with the 'diff' tool, the configuration param 'plain-diff-args' is used instead of the 'diff-diff-args' to enable initial diff behavior in arcv (without popup , nor context and colors)
     - Via configuration:
-       > ignore-special-perm-bits: enables to ignore specific permission flag like ACL for permission-only changes
+
+        ** ignore-special-perm-bits: enables to ignore specific permission flag like ACL for permission-only changes
     - Extended the list of information can be displayed with 'av repo':
-          > releases : list of releases
-          > latest-release-tag: latest release tag
-          > latest-release-rev : revision number of latest release
-          > exclude-file: exclusion file path in the repository
-          > exclusions: list of patterns of excluded files
-          > src-dir: root directory path for the source in the repository
-          > rev-dir: directory path of current revision in the repository
-          > rev-hashfilepath: : directory path of the hash file of the current revision in the repository
-          > rev-hashfilename: hash file basename 
-          > head-dir: head directory path in the repository, which contains all information about the head
-          > head-image-dir: directory path of the full head image 
-          > git-repo: directory path of the git repo in the repository, used to export source images
-          > size: total size of the data occupied for the source in the repository
+
+        ** releases : list of releases
+        ** latest-release-tag: latest release tag
+        ** latest-release-rev : revision number of latest release
+        ** exclude-file: exclusion file path in the repository
+        ** exclusions: list of patterns of excluded files
+        ** src-dir: root directory path for the source in the repository
+        ** rev-dir: directory path of current revision in the repository
+        ** rev-hashfilepath: : directory path of the hash file of the current revision in the repository
+        ** rev-hashfilename: hash file basename 
+        ** head-dir: head directory path in the repository, which contains all information about the head
+        ** head-image-dir: directory path of the full head image 
+        ** git-repo: directory path of the git repo in the repository, used to export source images
+        ** size: total size of the data occupied for the source in the repository
     - --fix to recompute hash for current image
 
   * Improvs
 
     - Improved diff experience when using diff:
-        > more git alike, using colors and context lines
-        > configurable diff parameters:
+    
+        ** more git alike, using colors and context lines
+        ** configurable diff parameters:
           diff-diff-args
           diff-popup-xterm-args
     - Ergonomics of changed filed menu for multipages (scrollbar mime, page/total) 
@@ -91,8 +139,9 @@
     - Log commands can now be applied to a file by specifying its name in the current dir anywhere in the file tree without having to specify the relative path to the root source folder    
     - Diffs launched in backgound from the changed file menu at check-in are not blocking the menu anymore. Diff processes are auto-terminated at arcv exit (except meld)
     - Several flaws in SHA256 computing algorithm:
-        > The hash computation algorithm is now much more reliable across different systems, in particular it does not not rely anymore on any output order or sorting of ls
-        > as legacy the function forces US/Pacific timezone for the internal 'ls' , but initial timezone was not restored properly. Even it does not affect the fingerprint itself, it affected the calling app
+
+        ** The hash computation algorithm is now much more reliable across different systems, in particular it does not not rely anymore on any output order or sorting of ls
+        ** as legacy the function forces US/Pacific timezone for the internal 'ls' , but initial timezone was not restored properly. Even it does not affect the fingerprint itself, it affected the calling app
     - Now properly handling display of multi-page change menu at check-in
     - Changed files can now be diffed through the menu at check-in when there are more than 255 files
 
@@ -102,17 +151,19 @@
 
     - 'av rel' command: to check release history, including interactive menu to diff with head or previous release
     - 'av destroy' command: Take folder out of revision control and delete all related file from repositiory
-    - 'av repo [infoname]': provides the following information, resp for 'infoname':
-        releases : show the release history message log. Same as 'av rel', except there's no interactive menu
-        exclude-file: file path where are stored the exclusion file patterns in the repositiory 
-        exclusions : list of exclusion file patterns for the source folder as stored in the repository
-        src-dir : root directory of the source inside the repositoryq
-        rev-dir : head revision directory of the source inside the repository
-        head-dir : full head file tree inside the repository
-        git-repo size: Size occupied by the source folder inside the repository
-        Special values:
-          (none): show all information listed below
-          (any string not maching the above ones) : seeks a matching substring in the above info name and shows it when so.
+    - 'av repo [infoname]', provides the following information, resp for 'infoname':
+
+        ** releases : show the release history message log. Same as 'av rel', except there's no interactive menu
+        ** exclude-file: file path where are stored the exclusion file patterns in the repositiory 
+        ** exclusions : list of exclusion file patterns for the source folder as stored in the repository
+        ** src-dir : root directory of the source inside the repositoryq
+        ** rev-dir : head revision directory of the source inside the repository
+        ** head-dir : full head file tree inside the repository
+        ** git-repo size: Size occupied by the source folder inside the repository
+        ** Special values:
+
+          - (none): show all information listed below
+          - (any string not maching the above ones) : seeks a matching substring in the above info name and shows it when so.
             E.g. 'av excl' will show info for 'exclude-file' and 'exclusions'
             E.g. 'av dir' will show all info which name contains 'dir': src-dir, rev-dir etc.
     - 'av -X' : exclusion file patterns specified with '-W' can now be defined not only at repository creation
@@ -134,9 +185,10 @@
     - New features: added "repo" command to get information on repository. Currently, only "av repo git-repo" is available
     - Improvs: exclusion filters for temp nfs and swap files
     - Fixes: 
-      * HOT: removed folders were checked out (critical)
-      * Makefile 'export target
-      * There could be words in local language appearing in the generated man page (month at end of page)
+
+      ** HOT: removed folders were checked out (critical)
+      ** Makefile 'export target
+      ** There could be words in local language appearing in the generated man page (month at end of page)
 
 1.0.0
 

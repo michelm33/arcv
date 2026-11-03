@@ -99,6 +99,9 @@ user-name: Your Name
 # User email when exporting to GitHub
 user-email: your@email.com
 
+# Editor, absolute path or reachable via path
+editor: code
+
 # URL of sumo package if needed for mounting `storage-via-mount`
 mountpilot-pkg: https://slashetc.fr/download/mountpilot_2.0-2_amd64.deb
 # Mandatory newline

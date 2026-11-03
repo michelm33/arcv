@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv__options.sh
-# Release file date: 2026-10-02 04:38
-# App version: 1.2.2
-# App source revision: 336
-# App source signature: 5fea20a0a92aed1f008acfc37d59c04a454659594aaf860b4d18b60818b8715e
-# Source file last modification: 2026-09-30 17:39:36.450270225 +0200
+# Release file date: 2026-10-25 20:11
+# App version: 2.0.0
+# App source revision: 397
+# App source signature: c2611dc49f82084f15e5e4ce636132e150e50807672d858fde255dd1be30c96a
+# Source file last modification: 2026-10-24 17:19:36.942516452 +0200
 #
 # This header was generated. Do not modify.
 #
@@ -161,12 +161,20 @@ ARCV__VARS["diff_rev"]=""  # use last version
 
 
 # Note -v is reserved for displaying version
-ARCV__OPTION_LIST_SDESC["--verbose"]="Verbose mode"
-ARCV__OPTION_LIST_DESC["--verbose"]="
+ARCV__OPTION_LIST_SDESC["--verbose|-V"]="Verbose mode"
+ARCV__OPTION_LIST_DESC["--verbose|-V"]="
 Verbose mode
 "
-ARCV__OPTION_LIST_ARGS["--verbose"]="1"
-ARCV__OPTION_LIST_ACTI["--verbose"]='ARCV__VARS["verbose"]=true'
+ARCV__OPTION_LIST_ARGS["--verbose|-V"]="1"
+ARCV__OPTION_LIST_ACTI["--verbose|-V"]='ARCV__VARS["verbose"]=true'
+
+
+ARCV__OPTION_LIST_SDESC["--no-cache|-U"]="Force updating computed data instead of using cached one"
+ARCV__OPTION_LIST_DESC["--no-cache|-U"]="
+Force updating computed data instead of using cached one
+"
+ARCV__OPTION_LIST_ARGS["--no-cache|-U"]="1"
+ARCV__OPTION_LIST_ACTI["--no-cache|-U"]='ARCV__VARS["force-refresh"]=true'
 
 
 
@@ -542,14 +550,21 @@ ARCV__VARS["checkin"]=false
 '
 
 
-
 ARCV__OPTION_LIST_SDESC["--source"]='Source directory to checkout from the repository'
 
 ARCV__OPTION_LIST_DESC["--source"]='
-Source directory to checkout from the repository. The source folder to checkout can be specified with this option instead of resolving the source folder from the current working directory.
+Either a source directory to checkout from the repository or an URI from which to fetch the data from. Currently, only MongoDB URI are supported. 
+
+The source folder to checkout can be specified with this option instead of resolving the source folder from the current working directory.
+
+When the value is an URI, it can also be used for the sake of putting under revision control the data fetched from the URI or create a new revision directly from the URI without requiring an existing source folder. 
+
+A Mongo database content is fetched below the current workding directory, inside a source folder of the form "mongodb-<database name>@<database host>-<database port>". The database content is written into a Gzipped archive file is created of the form "mongo-db-<database name>.gz".
+
+Afterwards, an existing source folder can be used to create new revisions from the database simply by passing --fetch to the regular arcv commit command (arcv without argument), because the repository records the original fetch URI.
 '
 ARCV__OPTION_LIST_ARGS["--source"]="0" 
-ARCV__OPTION_LIST_ARGS_TYPE["--source"]="DIRECTORY"
+ARCV__OPTION_LIST_ARGS_TYPE["--source"]="DIRECTORY | <URI>"
 ARCV__OPTION_LIST_ACTI["--source"]=""
 ARCV__OPTION_LIST_VALS["--source"]='
 ARCV__VARS["explicit_backupsrc"]="${__myarg}"
@@ -588,7 +603,9 @@ ARCV__VARS["repo_infoname"]=""
 ARCV__OPTION_LIST_VALS["repo"]='
 ARCV__VARS["repo_infoname"]="${__myarg}"
 '
-ARCV__OPTION_LIST_ENUM["repo"]='release-dir release-hooks releases latest-release-tag latest-release-rev exclude-file exclusions src-dir rev-dir rev-hashfilepath rev-hashfilename head-dir head-image-dir git-repo size'
+ARCV__OPTION_LIST_ENUM["repo"]='release-dir release-hooks releases latest-release-tag latest-release-rev exclude-file exclusions src-dir rev-dir rev-hashfilepath rev-hashfilename head-dir head-image-dir head-rev fetch-url git-repo size'
+
+
 
 ARCV__OPTION_LIST_SDESC["-F|--fmt"]='Specifies the output format'
 
@@ -611,6 +628,7 @@ if ! Array__contains_by_string "${ARCV__OPTION_LIST_ENUM["-F|--fmt"]}" "$lowArg"
 fi
 '
 ARCV__OPTION_LIST_ENUM["-F|--fmt"]='plain adoc'
+
 
 
 ARCV__OPTION_LIST_SDESC["--from"]='Specify the most recent revision or release tag from which to start the operation'
@@ -660,6 +678,225 @@ ARCV__VARS["checkin"]=false
 ARCV__VARS["revisionlog"]=true
 ARCV__VARS["changelog"]=true
 '
+
+
+ARCV__OPTION_LIST_SDESC["--cm-cfg"]='Specifies a configuration parameter for the source in the repository'
+
+ARCV__OPTION_LIST_DESC["--cm-cfg"]='
+Specifies a configuration parameter for the source in the repository. 
+
+The parameter will be stored in the YAML configuration associated with the source in the repository.
+'
+ARCV__OPTION_LIST_ARGS["--cm-cfg"]="0" 
+ARCV__OPTION_LIST_ARGS_TYPE["--cm-cfg"]="YAML path assignment"
+ARCV__OPTION_LIST_ACTI["--cm-cfg"]=""
+ARCV__OPTION_LIST_VALS["--cm-cfg"]='
+ARCV__VARS["cm-cfg"]="${__myarg}"
+'
+
+
+ARCV__OPTION_LIST_SDESC["--fetch"]="Update the current source folder with the data fetched from the URI specified with --source and initiate check-in"
+ARCV__OPTION_LIST_DESC["--fetch"]="
+Update the current source folder with the data fetched from the URI specified with --source and initiate check-in.
+
+Note that if the URI was specified at very first commit (creation), it is not necessary to specify --source at subsequent check-ins, as the data will be implicitly fetched from that initial URI. 
+
+This operation is only allowed for a check-in.
+"
+ARCV__OPTION_LIST_ARGS["--fetch"]="1"
+ARCV__OPTION_LIST_ACTI["--fetch"]='ARCV__VARS["fetch-update"]=true'
+
+
+ARCV__OPTION_LIST_SDESC["--fetch-only"]="Create or update a source folder that will contain the data fetched from the passed URI without committing the source folder"
+ARCV__OPTION_LIST_DESC["--fetch-only"]="
+Creates or updates a source folder that will contain the data fetched from the passed URI without committing the source folder.
+
+This operation is only allowed at check-in, even though no actual check-in is initiated afterwards. 
+
+This function is provided for convenience for just generating a standalone MongoDB dump with dealing with any revision control.
+"
+ARCV__OPTION_LIST_ARGS["--fetch-only"]="1"
+ARCV__OPTION_LIST_ACTI["--fetch-only"]='
+ARCV__VARS["fetch-update"]=true
+ARCV__VARS["fetch-only"]=true
+'
+
+
+
+ARCV__OPTION_LIST_SDESC["push"]="Pushes data previously fetched to the URI specified with --source"
+ARCV__OPTION_LIST_DESC["push"]="
+Pushes data previously fetched to the URI specified with --source.
+The data is grabed from the current source folder or the head in the repository. 
+
+"
+ARCV__OPTION_LIST_ARGS["push"]="2" #2:optional value
+ARCV__OPTION_LIST_ARGS_TYPE["co"]="REVISION | RELEASE TAG"
+ARCV__OPTION_LIST_ACTI["push"]='
+ARCV__VARS["push"]=true
+'
+ARCV__OPTION_LIST_VALS["push"]='
+ARCV__VARS["push-arg"]="$__myarg"
+'
+
+
+ARCV__OPTION_LIST_SDESC["--rm"]="Removes the created source after a direct fetch check-in"
+ARCV__OPTION_LIST_DESC["--rm"]="
+Removes the created source after a direct fetch check-in
+A new revision can be created directly from an URI, without requiring an existing source folder, by fetching new data from the specified URI. In this process, a matching source folder is created in the current directory. This option enables to clean up the folder once the commit completed
+
+"
+ARCV__OPTION_LIST_ARGS["--rm"]="1"
+ARCV__OPTION_LIST_ACTI["--rm"]='ARCV__VARS["remove-after-direct-fetch-commit"]=true'
+
+
+
+ARCV__OPTION_LIST_SDESC["--cycle"]='Specifies the size of the revision ring for circular revisions'
+
+ARCV__OPTION_LIST_DESC["--cycle"]='
+Specifies the size of the revision ring for circular revisions, i.e. the number of revisions after which the revision number shall wrap around. 
+
+When the cycle is a plain integer, the revision will wrap around starting from 0 again. 
+
+Each saved revision contains all data, and not only the differences.
+
+At wraparound, a new revision overwrites any previous one of the same number and thus gets lost.
+
+When the cycle is an integer number following by '+', it additionally initiates a parallel cycle backup source in the repository. Each time is a cycle is completed, a new revision is created in the backup source duplicating the last cycle revision. The name of the cycle backup source is the original source to which '-cycle' is appended and is managed automatically.
+
+A 0 cycle value means 'infinite' (implicit default value).
+
+This option can only be specified at the initial commit.
+'
+ARCV__OPTION_LIST_ARGS["--cycle"]="0" 
+ARCV__OPTION_LIST_ARGS_TYPE["--cycle"]="INTEGER[+]"
+ARCV__OPTION_LIST_ACTI["--cycle"]=""
+ARCV__OPTION_LIST_VALS["--cycle"]='
+
+if [[ "${__myarg}" =~ ^([0-9]+)(\+?)$ ]] ; then
+    ARCV__VARS["revision-cycle"]="${BASH_REMATCH[1]}"
+    if Str__isEmpty "${BASH_REMATCH[2]}" ; then
+        ARCV__VARS["cycle-save"]=false
+    else
+        ARCV__VARS["cycle-save"]=true
+    fi
+else
+    _exit -1 "Invalid cycle ${__myarg}. It must be a positive integer optionally following by '+'."
+fi
+'
+
+
+
+ARCV__OPTION_LIST_SDESC["--interval"]='Specifies the time interval in days, hours, minutes or seconds at which new revisions are allowed to be created'
+
+ARCV__OPTION_LIST_DESC["--interval"]='
+Specifies the time interval in days, hours, minutes or seconds at which new revisions are allowed to be created. For instance, if the value is 1h or 3600s, an attempt to commit a new revision will be rejected an hour after the last commit. A margin of +-10s is allowed.
+
+An explicit value of 0 means there is no restriction (implicit default).
+
+This option can only be specified at the initial commit and is usually used to enforce backup strategies.
+'
+ARCV__OPTION_LIST_ARGS["--interval"]="0" 
+ARCV__OPTION_LIST_ARGS_TYPE["--interval"]="INTEGER[+]"
+ARCV__OPTION_LIST_ACTI["--interval"]=""
+ARCV__OPTION_LIST_VALS["--interval"]='
+
+if [[ ! "${__myarg}" =~ ^([0-9]+)(d|h|m|s)$ ]] ; then
+    _exit -1 "Invalid time interval ${__myarg}. It must be a positive integer following by any of the following: 'd' for days or 'h' for hours or 'm' for minutes or 's' for seconds."
+fi
+ARCV__VARS["revision-interval"]="${BASH_REMATCH[1]}"
+local formula="${BASH_REMATCH[1]} * 1"
+case "${BASH_REMATCH[2]}" in
+    d) formula="${BASH_REMATCH[1]} * 3600 * 24" ;;
+    h) formula="${BASH_REMATCH[1]} * 3600" ;;
+    m) formula="${BASH_REMATCH[1]} * 60" ;;
+    s) formula="${BASH_REMATCH[1]} * 1" ;;
+    *) ;; # cannot happen
+esac
+
+Int__calc_r "${formula}" ARCV__VARS["revision-interval"] 
+'
+
+
+ARCV__OPTION_LIST_SDESC["--force"]="Force a commit even when no change was detected"
+ARCV__OPTION_LIST_DESC["--force"]="
+Forces a commit even when no change was detected
+"
+ARCV__OPTION_LIST_ARGS["--force"]="1"
+ARCV__OPTION_LIST_ACTI["--force"]='ARCV__VARS["force-commit"]=true'
+
+
+
+ARCV__OPTION_LIST_SDESC["--revive"]="Revive file from lastest version found in history when missing in head revision"
+ARCV__OPTION_LIST_DESC["--revive"]="
+Revives a file from the lastest version found in history when the file is missing in head revision. This option is only valid in the scope of a checkout operation.
+"
+ARCV__OPTION_LIST_ARGS["--revive"]="1"
+ARCV__OPTION_LIST_ACTI["--revive"]='ARCV__VARS["revive"]=true'
+
+
+
+
+
+
+ARCV__OPTION_LIST_SDESC["--files"]="Lists all the files used by the app (config, log etc)"
+ARCV__OPTION_LIST_DESC["--files"]="
+Lists the files used by the app, i.e. the configuration file, the log file, the dependency system package installation cache file
+"
+ARCV__OPTION_LIST_ARGS["--files"]="1"
+ARCV__OPTION_LIST_ACTI["--files"]='
+local file
+if _getConfigFilePath file ; then
+        echo "${file}"
+fi
+
+if _getLogPath file ; then
+        echo "${file}"
+fi
+
+if _getDependenciesCacheFile file ; then
+        echo "${file}"
+fi
+
+_quit ""
+'
+
+ARCV__OPTION_LIST_SDESC["--log"]="Show the log tail"
+ARCV__OPTION_LIST_DESC["--log"]="
+Show the log tail. By default, shows the last 40 lines and the number of lines specified as option value.
+"
+ARCV__OPTION_LIST_ARGS["--log"]="2"
+ARCV__OPTION_LIST_ACTI["--log"]='
+local _log=""
+
+_getLogPath __log
+tail -F "${__log}" -n 40
+_quit ""
+'
+ARCV__OPTION_LIST_VALS["--log"]='
+local __log
+_getLogPath __log
+tail -F "${__log}" -n "${__myarg}"
+_quit ""
+'
+
+ARCV__OPTION_LIST_SDESC["--config"]="Show the configuration file content"
+ARCV__OPTION_LIST_DESC["--config"]="
+Shows the configuration file content
+"
+ARCV__OPTION_LIST_ARGS["--config"]="1"
+ARCV__OPTION_LIST_ACTI["--config"]='
+local file
+if _getConfigFilePath file ; then
+        echo "${file}:"
+        cat "${file}"
+        echo "END"
+        _quit ""
+else
+        _exit -1 "Failed to retrieve configuration file path"
+
+fi 
+'
+
 
 
 # implement that later

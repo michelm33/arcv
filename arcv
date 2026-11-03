@@ -10,11 +10,11 @@
 # Les termes de la licence sont détaillés dans le fichier LICENSE.txt
 # 
 # Release file path: arcv
-# Release file date: 2026-10-02 04:38
-# App version: 1.2.2
-# App source revision: 336
-# App source signature: 5fea20a0a92aed1f008acfc37d59c04a454659594aaf860b4d18b60818b8715e
-# Source file last modification: 2026-10-02 04:15:51.812453427 +0200
+# Release file date: 2026-10-25 20:11
+# App version: 2.0.0
+# App source revision: 397
+# App source signature: c2611dc49f82084f15e5e4ce636132e150e50807672d858fde255dd1be30c96a
+# Source file last modification: 2026-10-25 19:06:16.301679550 +0100
 #
 # This header was generated. Do not modify.
 #
@@ -46,12 +46,20 @@ eval $_loadm<<<'shell-api-net'
 eval $_loadm<<<'shell-api-sys'
 eval $_loadm<<<'shell-api-packing'
 eval $_loadm<<<'shell-api-git'
+eval $_loadm<<<'shell-api-mongodb'
+
 eval $_loada<<<'arcv__vars.sh'
 eval $_loada<<<'arcv__options.sh'
 eval $_loada<<<'arcv__help.sh'
 #eval $_loada<<<'arcv__debug.sh'
 
 Arcv__threadPool=()
+
+declare -A Arcv__currentRepoData # This is the new source repository config file
+declare -A Arcv__mongodb
+
+# lastBackupappversiontarget is a global variable
+lastBackupappversiontarget=""
 
 #__LOG_DEBUG__=0
 
@@ -62,8 +70,20 @@ Arcv__getDefaultConfigFile()
     return 0
 }
 
+:<<'EOF'
+Initializes internal source-related variables from the passed relative or absolute 
+source folder path:
+
+  ARCV__VARS["backupsrc"] : will be assigned the absolute path of the passed folder
+  ARCV__VARS["backupsrcBasename"] : will be assigned the base folder name
+EOF
+
 Arcv__setBackupSrc()
 {
+    if ! Str__isEmpty "${ARCV__VARS["explicit_backupsrc"]}" ; then
+        return 0
+    fi
+
     local value="$1"
     value=$(realpath -m "$value")
     Str__trimEnd "$value" value "/"
@@ -168,7 +188,7 @@ UPDATE 22/07/2026:  when syncing source with head, do not care of excluded file 
 There could be a problem if the same excluded path appears also in a subfolder, in which case they are not removed from the head, except if delete-exclude , but
 we cannot do that of course. that there must always be a full synch done
 
-UPDATE 22/07/2026: Files explicitly excluded must still be excluded
+UPDATE 22/07/2026: Files explicitly excluded with --exclude must still be excluded
 
 @param [1] the new, last revision of the head
 @param [2] The file containing the list of source files to be excluded from the copy (usually the files that didn't change)
@@ -177,21 +197,25 @@ EOF
 Arcv__updateHeadRevision()
 {
     local __inArcVersion=$1
-    local __inExcludeFilesCmd="$2"
-    local silent=${ARCV__VARS["silent"]}
     local res=1
     local headRevFile="${ARCV__VARS["headversion"]}/REV"
 
-    local excludeFilesTmp=""
-    Arcv__completeCopyCmdExcludeFileFromRepoExcludeFile excludeFilesTmp
+    # Rebuild the exclusion command option anew for forcing the copy of all files
+    # 
     local excludeFilesCmd=""
-    if [ ! -z "${excludeFilesTmp}" ] ; then
-        excludeFilesCmd="--exclude-from=${excludeFilesTmp}"
-    fi
+    Arcv__setupCopyCmdExcludeFileFromRepoExcludeFile excludeFilesCmd
 
-    local cmdHeadUpdate="${ARCV__VARS["copy"]} ${ARCV__VARS["copy_opt_intern"]} --delete '${ARCV__VARS["backupsrc"]}' '${ARCV__VARS["headversion"]}/' ${excludeFilesCmd}"
-    #"${__inExcludeFilesCmd}" # SEE COMMENT ABOVE, REPLACED WITH excludeFilesCmd
-    #--prune-empty-dirs 
+
+    # In the copy command specify ARCV__VARS["backupsrcBasename"] as explicit source target
+    # folder because the name of local source might be different than that of the target  in
+    # source the repository, especially when using --source when checking into a difference 
+    # source
+    # rsync: a trailing "/" in source avoids creating an additional directory level on target
+    # So if backupsrcBasename does not exist, it is created an data copied inside
+    # So if backupsrcBasename does exist, the data are simply copied inside
+    local backupSrc="${ARCV__VARS["backupsrc"]}/"
+    local targetSrc="${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}"
+    local cmdHeadUpdate="${ARCV__VARS["copy"]} ${ARCV__VARS["copy_opt_intern"]} --delete '${backupSrc}' '${targetSrc}' ${excludeFilesCmd}"
 
     if _debugging ; then _log_vars cmdHeadUpdate ; fi
 
@@ -203,9 +227,83 @@ Arcv__updateHeadRevision()
     return $res
 }
 
+
+:<<'EOF'
+This function is called to initialize internal references
+when a matching entry in the repository was found for the 
+source which path is passed as 2 argument, i.e.
+there's an archive of the same name as the base folder name.
+
+This sets:
+ 
+  ARCV__VARS["backupapptargetrootfile"]
+  ARCV__VARS["backupapptarget"]
+  Calls 'Arcv__setBackupSrc' with the specified path
+  Reads the source configuration file YAML into Arcv__currentRepoData map
+
+@param[1] path of the ROOT file
+@param[2] path to a local source folder
+EOF
+Arcv__initSourceRepoReference() {
+    local __inRootFile="$1"
+    local __inBackupSrc="$2"
+
+    Arcv__setBackupSrc "${__inBackupSrc}"
+    ARCV__VARS["backupapptargetrootfile"]="$__inRootFile"
+    ARCV__VARS["backupapptarget"]="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive"
+
+    # Read the advanced source repository configuration
+    local sourceRepoCfg="${ARCV__VARS["backupsrcBasename"]}.yml"
+    Str__toLower sourceRepoCfg
+    sourceRepoCfg="${ARCV__VARS["backupapptarget"]}/${sourceRepoCfg}"
+    if File__fileExists "${sourceRepoCfg}" ; then
+        YAML__readAll "${sourceRepoCfg}" Arcv__currentRepoData
+        YAML__normalize Arcv__currentRepoData
+    fi
+
+    Arcv__updateSourceRepoConf "${ARCV__VARS["cm-cfg"]}"
+}
+
+:<<'EOF'
+EOF
+Arcv__updateSourceRepoConf() {
+    if Str__isEmpty "$1" ; then
+        return 0
+    fi
+
+    local sourceRepoCfg="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.yml"
+    local args=()
+    Array__fromString "$1" "=" args
+
+    if ! File__fileExists "${sourceRepoCfg}" ; then echo > "${sourceRepoCfg}" ; fi
+
+    #_log_vars sourceRepoCfg args[0] args[1]
+    YAML__writeFile "${sourceRepoCfg}" "${args[0]}" "${args[1]}"
+}
+
+:<<'EOF'
+Attempts to initialize the following internal reference data from an explicit URL  :
+- ARCV__VARS["backupsrcBasename"]
+- ARCV__VARS["backupsrc"]
+For a MongoDB URL, this builds a default base source folder name format as 'mongodb-<database name>@<database host>-<database port> and then calls Arcv__setExplicitSource with it
+@param [1] the URL, usually it is the content of ARCV__VARS["explicit_backupsrc"] set from the --source option argument.
+EOF
+
+Arcv__initMongoDBRepoReference() {
+    local expectedRoot=""
+    if mongodb__decodeURL "$1" Arcv__mongodb[host] Arcv__mongodb[port] Arcv__mongodb[dbName] ; then
+        local srcBasename="mongodb-${Arcv__mongodb[dbName]}@${Arcv__mongodb[host]}-${Arcv__mongodb[port]}"
+        Arcv__setExplicitSource "$srcBasename"
+        #expectedRoot="${ARCV__VARS["backuptarget"]}/${srcBasename}.archive/ROOT"
+        #Arcv__initSourceRepoReference "$expectedRoot" "${ARCV__VARS["backupsrc"]}"
+    else
+        return 1
+    fi
+}
+
 :<<'EOF'
 Creates the ROOT file upon new repo creation.
-@param [1] in Storage mount path as read from configuration
+@param [1] in Storage mount path as read from configuration (NOT USED AT THE MOMENT)
 EOF
 
 Arcv__createROOT()
@@ -214,7 +312,8 @@ Arcv__createROOT()
     ARCV__VARS["backupapptargetrootfile"]="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive/ROOT"
 
     echo -n "" > "${ARCV__VARS["backupapptargetrootfile"]}"
-    Arcv__registerSource
+
+    Arcv__registerSource "${ARCV__VARS["backupapptargetrootfile"]}"
 }
 
 :<<'EOF'
@@ -264,19 +363,25 @@ Arcv__initiateRevision()
 
     # Head folder and set ARCV__VARS["headversion"]
     Arcv__getInfoHeadDirPath ARCV__VARS["headversion"]
-    mkdir -p "${ARCV__VARS["headversion"]}" 
+    _makeDir "${ARCV__VARS["headversion"]}" 
 
     # Current head revision
     echo "${startRevNumber}" > "${ARCV__VARS["headversion"]}/REV"
 
     # 'dropped' file folder
     Arcv__getInfoDroppedDirPath ARCV__VARS["droppedsrc"]
-    mkdir -p "${ARCV__VARS["droppedsrc"]}" 
+    _makeDir "${ARCV__VARS["droppedsrc"]}" 
 
     # 'releases' directory
     local releaseFolder=""
     Arcv__getInfoReleasesDirPath releaseFolder
-    mkdir -p "${releaseFolder}" &>/dev/null
+    _makeDir "${releaseFolder}"
+
+    # Create the config file in repo
+    Arcv__updateSourceRepoConf "${ARCV__VARS["cm-cfg"]}"
+    Arcv__updateSourceRepoConf ".rev-cycle=${ARCV__VARS["revision-cycle"]}"
+    Arcv__updateSourceRepoConf ".rev-cycle-backup=${ARCV__VARS["cycle-save"]}"
+    Arcv__updateSourceRepoConf ".commit-interval=${ARCV__VARS["revision-interval"]}"
 
     #
     # Create revision 0
@@ -290,15 +395,15 @@ Arcv__initiateRevision()
     #_log_vars sha256
 
     local excludeFilesCmd=""
-    local excludeFilesTmp=""
-    Arcv__completeCopyCmdExcludeFileFromRepoExcludeFile excludeFilesTmp
-    if [ ! -z "${excludeFilesTmp}" ] ; then
-        excludeFilesCmd="--exclude-from=${excludeFilesTmp}"
-    fi
+    Arcv__setupCopyCmdExcludeFileFromRepoExcludeFile excludeFilesCmd
+
     #_log_vars excludeFilesCmd excludeFilesTmp
 
     ARCV__VARS["backupappversiontarget"]=""
-    Arcv__createRevision ${startRevNumber} "Creation" "${sha256}" "${excludeFilesCmd}" "${excludeFilesTmp}" ""
+    local addedFiles=()
+    local deletedFiles=()
+    local changedFiles=()
+    Arcv__createRevision startRevNumber "Creation" "${sha256}" "${excludeFilesCmd}" "${excludeFilesTmp}" "" addedFiles deletedFiles changedFiles
     res=$?
     if [ $res -eq 0 ] ; then
         if ${ARCV__VARS["verbose"]} ; then
@@ -331,26 +436,51 @@ Arcv__completeLsIgnorePatternsFromRepoExcludeFile()
     fi
 }
 
+
 :<<'EOF'
 Subfunction to be called to create or complete the file containing the pattern of the files to be prevented from being copied into the repository during a commit operation, according to the rsync command (see --exclude-from option)
 @param[1] inout exclude file path. May be unchanged if no items have to be excluded. If the value is empty and there are files to be excluded, the variable will contain as return value the path to a new temporary file containing the list of exclusion patterns
 EOF
 Arcv__completeCopyCmdExcludeFileFromRepoExcludeFile()
 {
-    local -n __inExcludeFilesTmp=$1
+    local -n __inExistingExcludeFilesTmp=$1
 
     #_log_warn "backupapptargetexcludefile: ${ARCV__VARS["backupapptargetexcludefile"]}" # DEBUG
     if [ ! -z  "${ARCV__VARS["backupapptargetexcludefile"]}" ] ; then
-        if [ -z  "${__inExcludeFilesTmp}" ] ; then
+        if [ -z  "${__inExistingExcludeFilesTmp}" ] ; then
             local __excludeFilesTmp
             File__createTempFile __excludeFilesTmp
-            __inExcludeFilesTmp="${__excludeFilesTmp}"
+            __inExistingExcludeFilesTmp="${__excludeFilesTmp}"
         fi
-        cat "${ARCV__VARS["backupapptargetexcludefile"]}" | awk '{ if (length($0) > 0) print "- " $0}' >> "${__inExcludeFilesTmp}"
+        cat "${ARCV__VARS["backupapptargetexcludefile"]}" | awk '{ if (length($0) > 0) print "- " $0}' >> "${__inExistingExcludeFilesTmp}"
         
         #DEBUG
-        #_log_vars __inExcludeFilesTmp
-        #echo "Content of exclude file $(cat "${__inExcludeFilesTmp}")"
+        #_log_vars __inExistingExcludeFilesTmp
+        #echo "Content of exclude file $(cat "${__inExistingExcludeFilesTmp}")"
+    fi
+}
+
+:<<'EOF'
+This function sets up the rsync command (see --exclude-from option) for excluding 
+the files to be prevented from being copied into the repository during a commit operation,
+as defined with the --exclude command or at init.
+
+It uses Arcv__completeCopyCmdExcludeFileFromRepoExcludeFile to  create a file containing the pattern of the files to be excluded. This file is referenced in the command, but is not itself
+a returned value, only the command itself, unlike Arcv__completeCopyCmdExcludeFileFromRepoExcludeFile.
+
+Note that if there's no exclusion, an empty string is just returned as command option
+@param[1] out rsync command command option (see --exclude-from option)
+EOF
+Arcv__setupCopyCmdExcludeFileFromRepoExcludeFile()
+{
+    local -n __outSetupExcludeCommand=$1
+
+    __outSetupExcludeCommand="" # Set to empty by default
+
+    local excludeFilesTmp=""
+    Arcv__completeCopyCmdExcludeFileFromRepoExcludeFile excludeFilesTmp    
+    if ! Str__isEmpty "${excludeFilesTmp}" ; then
+        __outSetupExcludeCommand="--exclude-from=${excludeFilesTmp}"
     fi
 }
 
@@ -385,46 +515,109 @@ Arcv__rollbackRevision()
 
 :<<'EOF'
 Top function to  create a new revision, ie. it creates the file tree in the repository for the current app archive target version (ongoing new revision) 
-@param [1] revision number
-@param [2] revision log
-@param [3] integrity checksum
-@param [4] The temp file containing the list of source files to be excluded from the copy (usually the files that didn't change)
-@param [5] The temp. file containing the list of deleted files for this revision
+@param[1] ref of var containing revision number. This may be changed when revisions are circular
+@param[2] revision log
+@param[3] integrity checksum
+@param[4] rsync exclusion option based on present arg 5
+@param[5] The temp file containing the list of source files to be excluded from the copy (usually the files that didn't change)
+@param[6] The temp. file containing the list of deleted files for this revision
+@param[7] ref to array var storing the list of added files
+@param[8] ref to array var storing the list of deleted files
+@param[9] ref to array var storing the list of changed files
 EOF
 Arcv__createRevision()
 {
-    local __inArcVersion=$1
+    local -n __inArcVersion=$1
     local __inRevLog="$2"
     local __inSHA256="$3"
     local __inExcludeFilesCmd="$4"
     local __inExcludeFilesTmp="$5"
     local __inExcludeDroppedFilesList="$6"
+    local -n __inAddedFiles=$7
+    local -n __inDeletedFiles=$8    # Not used at the moment. __inExcludeDroppedFilesList content is used to generate DROPPED
+    local -n __inChangedFiles=$9    # Not used at the moment
     local silent=${ARCV__VARS["silent"]}
     local res=1
+    
+    #_log_vars __inArcVersion __inSHA256 __inExcludeFilesCmd 
 
-    #local cmd="${ARCV__VARS["copy"]} ${ARCV__VARS["copy_opt"]} "${excludeFilesCmd}" '${ARCV__VARS["backupsrc"]}' '${ARCV__VARS["backupappversiontarget"]}/' | grep -v '/$' | sed '/^sending incremental file list/i\========================================' | grep -v '^sending incremental file list'"
+    #
+    # Manage circular revisions
+    # - wraparound to 0 if cycle revision count is reached
+    # - copy all files, not just the difference by reconstructing the excluded files command option
+    local revCycle=${Arcv__currentRepoData["rev-cycle"]:-0}
+    if Int__not0 $revCycle ; then
+        if Int__eq ${__inArcVersion} $revCycle ; then
+            __inArcVersion=0 
+        fi
+        Arcv__setupCopyCmdExcludeFileFromRepoExcludeFile __inExcludeFilesCmd
+    fi
+    
+    # cat "${__inExcludeFilesTmp}" # DEBUG
 
     # Ensure correct definition of 'backupappversiontarget'
     local backupappversiontarget="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${__inArcVersion}"
     local current_backupappversiontarget="${ARCV__VARS["backupappversiontarget"]}"
     Str__trimEnd "${current_backupappversiontarget}" current_backupappversiontarget "/"
+    
     # If global var is already defined, check that it matches the expected one
-    if [ -z "${current_backupappversiontarget}" ] ; then
+    # except for circular revisions, for which the above constructed backupappversiontarget
+    # is always reconstructed for the actual revision number
+    if [ -z "${current_backupappversiontarget}" ] || Int__not0 $revCycle ; then
         ARCV__VARS["backupappversiontarget"]="${backupappversiontarget}"
     else
+        # Only for non-circular revision, it is additionnally checked that
+        # the internal backupappversiontarget matches the one reconstructed from other variables
         if [ "${current_backupappversiontarget}" != "${backupappversiontarget}" ] ; then
-            _exit -1 "Internal error: revision archive folder is deemed to be '${backupappversiontarget}', but currently resolved one is '${current_backupappversiontarget}' "  
+            _exit -1 "Internal error: revision archive folder is deemed to be '${backupappversiontarget}', but currently resolved one is '${current_backupappversiontarget}'" 
+        fi
+    fi
+    
+    #
+    # Copy the data to the backup target folders
+    #
+    # When committing new revisions, additional copy options apply:
+    #
+    # - Prune empty directories: otherwise, if the source has a complex directory structure,
+    #   but no file changed inside there, all dir tree would be recreated without any file inside
+    #
+    # - When revisions are cyclic, then remove any previous existing revision of the same number
+    #
+    local copyOptions="${ARCV__VARS["copy_opt"]}"
+    copyOptions+=" --prune-empty-dirs"
+
+    if Int__not0 ${revCycle} && File__dirExists "${ARCV__VARS["backupappversiontarget"]}"; then
+        # NO: copyOptions+=" --delete"
+        if ! _monitor "Removing antic revision ${__inArcVersion}" rm -rf "${ARCV__VARS["backupappversiontarget"]}/" ; then 
+            return 1
         fi
     fi
 
-    local cmd="${ARCV__VARS["copy"]} --prune-empty-dirs ${ARCV__VARS["copy_opt"]} "${__inExcludeFilesCmd}" '${ARCV__VARS["backupsrc"]}' '${ARCV__VARS["backupappversiontarget"]}/'"
-    _log_dbg "COMMAND: $cmd"
+    _makeDir  "${backupappversiontarget}"
+    #_log_vars ARCV__VARS["backupappversiontarget"] ARCV__VARS["backupsrcBasename"] 
+
+    # In the copy command specify ARCV__VARS["backupsrcBasename"] as explicit source target
+    # folder because the name of local source might be different than that of the target  in
+    # source the repository, especially when using --source when checking into a difference 
+    # source
+    # rsync: a trailing "/" in source avoids creating an additional directory level on target
+    # So if backupsrcBasename does not exist, it is created an data copied inside
+    # So if backupsrcBasename does exist, the data are simply copied inside
+    local backupSrc="${ARCV__VARS["backupsrc"]}/"
+    local targetSrc="${ARCV__VARS["backupappversiontarget"]}/${ARCV__VARS["backupsrcBasename"]}"
+    #if File__dirExists "${targetSrc}" ; then _log_warn "Version archive folder '$targetSrc' already exists!" ; fi
+    
+    #_log_vars backupSrc targetSrc
+    local cmd="${ARCV__VARS["copy"]} ${copyOptions} "${__inExcludeFilesCmd}" '${backupSrc}' '${targetSrc}'"
 
     #if $silent ; then Term__moveCursorUp 1 ; fi
     Arcv__opStart "Creating archive version ${__inArcVersion}"
 
+    _logf "COMMAND: $cmd"
     eval "$cmd" > /dev/null
+    #_log_vars cmd ARCV__VARS["backupappversiontarget"]
     res=$?    
+
     # If no line were selected by the filtering grep, 1 is returned, which is OK
     if [ $res -eq 1 ] ; then
         res=0   
@@ -447,7 +640,7 @@ Arcv__createRevision()
         return 1
     fi
 
-    Arcv__updateHeadRevision ${__inArcVersion} "${__inExcludeFilesCmd}"
+    Arcv__updateHeadRevision ${__inArcVersion}
     if [ $? -ne 0 ] ; then
         Arcv__rollbackRevision ${__inArcVersion}
         return 1
@@ -459,15 +652,23 @@ Arcv__createRevision()
         return 1
     fi
 
-    # Keep trace of removed files
+    # Create the list of added files
+    if ! Array__sizeMatch __inAddedFiles 0 ; then
+        Array__print __inAddedFiles "
+" "- /" > "${ARCV__VARS["backupappversiontarget"]}/ADDED"
+    fi
+
+    # Create DROPPED file to keep trace of removed files. It will be needed for getRevisionImage
     if [ ! -z "${__inExcludeDroppedFilesList}" ] ; then
         mv "${__inExcludeDroppedFilesList}" "${ARCV__VARS["backupappversiontarget"]}/DROPPED"
     fi
 
+    # Cleanup
     if [ ! -z "${__inExcludeFilesTmp}" ] ; then
         rm "${__inExcludeFilesTmp}" &>/dev/null
     fi
 
+    Arcv__getUpdateRepoSizeFile "${ARCV__VARS["backupapptarget"]}" "${ARCV__VARS["backupappversiontarget"]}"
 
     return $res
 }
@@ -487,6 +688,12 @@ Arcv__showRevisionAddedFiles()
     local _inIndent=$1
     local revSrc="${ARCV__VARS["backupappversiontarget"]}/${ARCV__VARS["backupsrcBasename"]}"
     local ff
+
+    if ! File__dirExists "${revSrc}" ] ; then
+        # Now file may have been added and only some deleted. In that case, 'backupsrcBasename' does not exist
+        return 0
+    fi
+
     while IFS='' read -r ff ; do
         if [ -L "$ff" ] ; then continue ; fi
         local rel_ff="$(realpath --relative-to "${revSrc}" "$ff")"
@@ -510,21 +717,33 @@ EOF
 Arcv__showRevisionRemovedFiles()
 {
     local _inIndent=$1
-    # Show the removed files
     local droppedFilesFile="${ARCV__VARS["backupappversiontarget"]}/DROPPED"
-    if [ -f "${droppedFilesFile}" ] ; then
-        local droppedFile=""
-        while IFS= read -r droppedFile ; do
-            droppedFile="${droppedFile:2}"
-            #_log_dbg "CHECK '${ARCV__VARS["backupsrcBasename"]}' '$droppedFile'"
-            droppedFile="$(realpath -m --relative-to "${ARCV__VARS["backupsrcBasename"]}" "${droppedFile}")"
-
-            Arcv__setColor droppedFile red_normal
-            if [ "${ARCV__VARS[output_format]}" = plain ] ; then droppedFile="- ${droppedFile}" ; fi
-            Str__spaces $((${_inIndent}+1))
-            echo -e "${droppedFile}"
-        done < <(cat "$droppedFilesFile")
+    
+    if ! File__fileExists "${droppedFilesFile}" ] ; then
+        return 0
     fi
+
+    local droppedFile=""
+    while IFS= read -r droppedFile ; do
+        local slashTest="${droppedFile:2:1}"
+        if Str__same "$slashTest" "/" ; then
+            # This is the LATEST WAY version how dropfiles are managed
+            # Remove 3 heading chars "- /" from the file
+            # The files are already relative to the backupsrcBasename, nothing to do
+            droppedFile="${droppedFile:3}"
+        else
+            # This is the LEGACY WAY dropfiles were managed
+            local startIndex=3 # 2 + 1 for the / separator after backupsrcBasename
+            Int__inc startIndex ${#ARCV__VARS["backupsrcBasename"]}
+            droppedFile="${droppedFile:${startIndex}}"
+        fi
+        #_log_dbg "CHECK '${ARCV__VARS["backupsrcBasename"]}' '$droppedFile'"
+        
+        Arcv__setColor droppedFile red_normal
+        if [ "${ARCV__VARS[output_format]}" = plain ] ; then droppedFile="- ${droppedFile}" ; fi
+        Str__spaces $((${_inIndent}+1))
+        echo -e "${droppedFile}"
+    done < <(cat "$droppedFilesFile")
 }
 
 Arcv__printRelHistLogHeader()
@@ -758,7 +977,7 @@ Arcv__showReleaseHooks()
     fi
 
     local allHooks=()
-    local lsCmd="pushd '${releaseFolder}' &>/dev/null && ls -1 .*.hook 2>/dev/null && popd &>/dev/null || popd &>/dev/null"
+    local lsCmd="_navCd '${releaseFolder}' && ls -1 .*.hook 2>/dev/null && _backCd || _backCd"
     local lsResLine=""
     while IFS='' read -r lsResLine ; do
         allHooks+=("$lsResLine")
@@ -847,8 +1066,18 @@ Arcv__showHistory()
     if [ $# -ge 4 ] ; then __inFormat="$4"; fi
     if [ -z "${__inFormat}" ] ; then __inFormat="${ARCV__VARS["output_format"]}"; fi
 
-    if ! Arcv__histLogVersionCheck __inCurrentVersion fromVersion toVersion ; then 
-        return 1
+    local editorApp
+    YAML__get ".editor" editorApp
+
+    # For circular revisions, we should shown all possible revision range
+    local revCycle=${Arcv__currentRepoData["rev-cycle"]:-0}
+    if Int__not0 $revCycle; then
+        toVersion=0
+        fromVersion=$(($revCycle-1))
+    else
+        if ! Arcv__histLogVersionCheck __inCurrentVersion fromVersion toVersion ; then 
+            return 1
+        fi
     fi
 
     Arcv__printHistLogHeader "$__inFormat" 
@@ -954,13 +1183,18 @@ $newLine"
 
     #Str__trim "$menuIgnIndex" menuIgnIndex
     local selectionIndex=1
-    local checkHead=false
     while true; do
+        local checkHead=false
+        local editLog=false
         Term__clear
         echo
         _colorText " ${ARCV__VARS["backupapptarget"]}" "blue_reverse"
         echo
-        Input__cursorSelect "${history}" "" $selectionIndex "" "+<h>head-diff" "h:$(($cnt))+?" "" "" selectionIndex
+        if ! _undefined "$editorApp" && File__isExe "$editorApp"; then
+            Input__cursorSelect "${history}" "" $selectionIndex "" "+<h>head-diff\U0020<e>dit\U0020log" "h:100000+?,e:200000+?" "" "" selectionIndex
+        else
+            Input__cursorSelect "${history}" "" $selectionIndex "" "+<h>head-diff" "h:100000+?" "" "" selectionIndex
+        fi
 
         Term__reset          
         # 0=q pressed=exit  
@@ -968,25 +1202,40 @@ $newLine"
             echo
             return 0
         fi
-        
+
         #_log_vars selectionIndex cnt
-        if [ ${selectionIndex} -gt $cnt ] ; then
-            selectionIndex=$(($selectionIndex - $cnt))
+        if Int__gt ${selectionIndex} 200000  ; then
+            selectionIndex=$(($selectionIndex - 200000))
+            editLog=true
+        elif Int__gt ${selectionIndex} 100000 ; then
+            selectionIndex=$(($selectionIndex - 100000))
             checkHead=true
-        else
-            checkHead=false
+        #else
+        # Index > $cnt on return
         fi
+
         # handle diff at index
         local fIndex=$(($selectionIndex - 1)) 
         local selectedEntry="$(echo "$history"|head -n${selectionIndex}| tail -n1)"
-        if $checkHead ; then
-            local selectedRev=${revisionsIndexes[$fIndex]}
+        local selectedRev=${revisionsIndexes[$fIndex]}
+        if $editLog ; then
+            local revDir="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${selectedRev}"
+
+            if ! $editorApp "$revDir/CHANGE_LOG" &>/dev/null ; then
+                Term__clear
+                Term__moveTo 0 0
+                _exit -1 "Failed to run editor command '$editorApp $revDir/CHANGE_LOG'"
+            fi
+            # No, actually an update of the file should be monitored
+            # and history command reexecuted
+            # At the moment, the list won't be refreshed
+            #Arcv__showHistory ${__inCurrentVersion} $fromVersion $toVersion ${__inFormat}
+        elif $checkHead ; then
             #_log "Diffing head with revision ${selectedRev}" # DEBUG
             av meld ${selectedRev}vshead &>/dev/null # don't disturb current menu display
         else                    
             # check with previous
             if [ $fIndex -lt $(($cnt-1)) ] ; then
-                local selectedRev=${revisionsIndexes[$fIndex]}
                 local prevRevision=$(( ${selectedRev} - 1 ))
                 #_log "Diffing ${selectedRev} with ${prevRevision}" # DEBUG
                 av meld ${selectedRev}vs${prevRevision} &>/dev/null # don't disturb current menu display
@@ -1230,8 +1479,14 @@ Arcv__histLogVersionCheck()
 Arcv__printHistLogHeader()
 {    
     local __inFormatHeader="$1"
+    local revCycle=${Arcv__currentRepoData["rev-cycle"]:-0}
 
     if Input__testYesForcedInput ; then return 0;  fi
+
+    local headerText="${ARCV__VARS["backupapptarget"]}"
+    if Int__not0 $revCycle; then
+        headerText="[CYCLIC ${revCycle}] ${headerText}"
+    fi
 
     case "${__inFormatHeader}" in
     adoc)
@@ -1249,7 +1504,7 @@ Arcv__printHistLogHeader()
 
         Term__clear
         echo
-        _colorText " ${ARCV__VARS["backupapptarget"]}" "green_reverse"
+        _colorText " ${headerText}" "green_reverse"
         echo
         ;;
     esac
@@ -1696,6 +1951,37 @@ Arcv__checkout()
     if [ ! -d "${droppedSrcDirname}" ] ; then mkdir "${droppedSrcDirname}" &>/dev/null ; fi
 
     local relDiffRevFolder="" # The temp folder containing the rebuilt release
+
+:<<'EOF'
+    if ${ARCV__VARS["isFetchURL"]} ; then  
+        
+        ## IS MONGODB
+
+        # ARCV__VARS["checkout"] is set from the _options file
+        if ! Str__same "${originalCheckoutArg}" "head"; then
+            _exit -1 "A checkout from an URL does not accept any argument (passed '$originalCheckoutArg')"
+        fi
+        
+        # NOTE:__inCheckoutFolderName is mainly set when branching 
+        # checkoutFolderName is assigned to  __inCheckoutFolderName 
+        # except if this latter is null or undefined
+        checkoutFolderName="${__inCheckoutFolderName:-${ARCV__VARS["backupsrcBasename"]}}"
+        outputFolder="${ARCV__VARS["checkout_folder"]:-.}"
+
+        local targetCODir="${outputFolder}/${checkoutFolderName}"
+        if [ -d "${targetCODir}/" ] ; then
+            Input__confirm_high "$(realpath --relative-to . "${targetCODir}") already exists. Overwrite its content?" || _exit -1 "Aborted"
+            echo
+            rm -f "${targetCODir}"/*
+        else
+            _makeDir "${targetCODir}"
+        fi
+        
+        local taskMessage="${ARCV__VARS["explicit_backupsrc"]} is being dumped into $(realpath --relative-to . "${targetCODir}")"
+        _monitor "$taskMessage" Arcv__fetchUpdate "${ARCV__VARS["explicit_backupsrc"]}" "${targetCODir}"
+
+    el
+EOF
     if [ -n "${originalCheckoutArg}" ] && Arcv__getReleaseTagImage "${originalCheckoutArg}" relDiffRevFolder; then
         #
         # This handles the case of a RELEASE CHECKOUT
@@ -1705,8 +1991,8 @@ Arcv__checkout()
 
         # When checking out from a current image (and not from a source), an output
         # folder must have been specified where to checkout the release
-        if [ -z "${ARCV__VARS["checkout_folder"]}" ] ; then
-            if  [ -z "${ARCV__VARS["explicit_backupsrc"]}"  ] ; then
+        if Str__isEmpty "${ARCV__VARS["checkout_folder"]}" ; then
+            if Str__isEmpty "${ARCV__VARS["explicit_backupsrc"]}" ; then
                 _exit -1 "No output folder specified!"
             else
                 # When checking out from a explicit source and no output folder was specified, then 
@@ -1756,25 +2042,46 @@ Arcv__checkout()
     # There are multiple checks to prevent from unwanted processing as a file
     # for specific use cases where checkout folder is supplied (this assumes it cannot be a file) or the checkout arg is not empty (a file name must be supplied)
     # NOTE: head file could be a folder. TODO test
-    elif [ -n "${originalCheckoutArg}" ] && [ -z "${__inCheckoutFolderName}" ] && [ -e "$repoSrcFile" ] ; then
+    elif [ -n "${originalCheckoutArg}" ] && [ -z "${__inCheckoutFolderName}" ] && (File__exists "$repoSrcFile" || ${ARCV__VARS["revive"]}) ; then
+        local latestAnticRev=0  # Only relevant for revivals
         #
-        # This handles the case of a FILE CHECKOUT, head or specific revision
+        # This handles the case of a FILE CHECKOUT, head or specific revision, or revival
+        # Note: repoSrcFile can be a folder 
         #
 
-        # This test is only valid when checking out head file
-        if $0 check &>/dev/null && [ -z "${ARCV__VARS["file_rev"]}" ]  ; then
-            _log_high "$currentfile is already up-to-date"
-            _quit ""
+        if ${ARCV__VARS["revive"]} ; then
+
+            if File__exists "$currentfile" ; then
+                _exit -1 "File '$currentfile' cannot be revived, because it already exists in the local source."        
+            fi
+
+            if File__exists "$repoSrcFile" ; then
+                _exit -1 "File '$currentfile' cannot be revived, because it already exists in head revision but just not locally. 
+Please run the following to bring it back
+arcv co ${ARCV__VARS["checkout"]} 
+"
+            fi
+
+            if ! Arcv__lookupAnticFile "${ARCV__VARS["current-revision"]}" "${ARCV__VARS["checkout"]}" repoSrcFile latestAnticRev; then
+                _exit -1 "File '$currentfile' cannot be revived, there's no trace of it in history"
+            fi
+        else
+            # This test is only valid when checking out head file
+            if $0 check &>/dev/null && [ -z "${ARCV__VARS["file_rev"]}" ]  ; then
+                _log_high "$currentfile is already up-to-date"
+                _quit ""
+            fi
         fi
 
         if ${ARCV__VARS["verbose"]} ; then
-            _log "checkout file $currentfile from '$repoSrcFile'"
+            _log_if ${ARCV__VARS["revive"]} "reviving file $currentfile from revision $latestAnticRev"
+            _log_ifnot ${ARCV__VARS["revive"]} "checkout file $currentfile from '$repoSrcFile'"
         fi
 
         # currentfile is the destination file to restore => relCurFilePath
         local relCurFilePath="$(realpath --relative-to "${ARCV__VARS["backupsrc"]}" "${currentfile}")"
-        if [ -e "$currentfile" ] ; then
-            Input__confirm_high "Overwrite current file '${relCurFilePath}'? " || _exit -1 "Aborted"
+        if File__exists "$currentfile" ; then
+            Input__confirm_high "Overwrite '${relCurFilePath}'? " || _exit -1 "Aborted"
         fi
         echo
 
@@ -1786,7 +2093,7 @@ Arcv__checkout()
         fi
 
         # Make the backup        
-        if [ -e "$currentfile" ] ; then
+        if File__fileExists "$currentfile" ; then
             local rRes=0
             local cmdCopyBackup="${ARCV__VARS["copy"]} ${ARCV__VARS["copy_opt_intern"]} '$currentfile' '${droppedFile}'"
             if _debugging ; then _log_vars cmdCopyBackup ; fi        
@@ -1803,42 +2110,54 @@ Arcv__checkout()
 
         # Restore the file
         local cmdCheckout="${ARCV__VARS["copy"]} ${ARCV__VARS["copy_opt"]} '$repoSrcFile' '$currentfile'"
+        
         if _debugging ; then _log_vars cmdCheckout ; fi
+        
         eval "$cmdCheckout"
         rsyncRes=$?
         if [ $rsyncRes -eq 0 ] ; then
-            _log_high "Successfully restored ${relCurFilePath} from revison ${__inArcVersion}"
+            if ${ARCV__VARS["revive"]} ; then
+                _log_high "Successfully revived ${relCurFilePath} from revison ${latestAnticRev}."
+            else
+                _log_high "Successfully restored ${relCurFilePath} from revison ${__inArcVersion}"
+            fi
         else
 
             _exit -1 "An error occurred while restoring file. Please check the logs and retry."        
         fi
     elif [ "${originalCheckoutArg}" = "head" ] ; then
+        # Note: on checkout operation from explicit source, the output folder 
+        # is always cwd + base source folder name: see Arcv__setExplicitSource
         local outputFolder="${ARCV__VARS["backupsrc"]}"
 
-        if [ -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
+        local opMessage=""
+        if Str__isEmpty "${ARCV__VARS["explicit_backupsrc"]}" ; then
 
             if [ ! -z "${ARCV__VARS["checkout_folder"]}" ] ; then
                 outputFolder="${ARCV__VARS["checkout_folder"]}/${ARCV__VARS["backupsrcBasename"]}"
             else
-                Input__confirm_high "Overwrite ALL with head revision? " || _exit -1 "Aborted"
+                opMessage="Updating current working directory with head revision"           
+                Input__confirm_high "Overwrite ALL current working with head revision? " || _exit -1 "Aborted"
                 echo
             fi
         else
-            # If explicit source is set, the value ARCV__VARS["backupsrc"] used above to initialize outputFolder will be set to ./ARCV__VARS["explicit_backupsrc"], see at the first lines of main(), lif [ -z "${ARCV__VARS["backupsrc"]}" ]
-            if [ ! -z "${ARCV__VARS["checkout_folder"]}" ] ; then
+            if ! Str__isEmpty "${ARCV__VARS["checkout_folder"]}" ; then
                 outputFolder="${ARCV__VARS["checkout_folder"]}/${ARCV__VARS["backupsrcBasename"]}"
+            #else
+                # If explicit source is set, the value ARCV__VARS["backupsrc"] used above to initialize outputFolder will be set to cwd/${ARCV__VARS["backupsrcBasename"]
+                # for checkouts. See Arcv__setExplicitSource
             fi
         fi
 
+        if Str__isEmpty "$opMessage" ; then
+            opMessage="Checking out head revision inside '${outputFolder}'"
+        fi
+        
         local cmdUpdateSrc="${ARCV__VARS["copy"]} ${ARCV__VARS["copy_opt"]} --delete '${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}/' '${outputFolder}/'"
 
         if _debugging ; then _log_vars cmdUpdateSrc ; fi
 
-        if [ -z "${ARCV__VARS["explicit_backupsrc"]}" ] && [ -z "${ARCV__VARS["checkout_folder"]}" ]  ; then
-            Arcv__opStart "Updating current source with head revision" true
-        else
-            Arcv__opStart "Checking out head revision to '${outputFolder}' " true
-        fi
+        Arcv__opStart "$opMessage" true
 
         eval "$cmdUpdateSrc"
         rsyncRes=$?
@@ -1908,6 +2227,37 @@ Arcv__checkout()
 }
 
 :<<'EOF'
+Retrieves the lastest version found in history of a file
+@param [1] in most recent revision from which to start the search
+@param [2] file or dir path to search for relatively to source root
+@param [3] out the path in the revision file in the repository
+@param [4] out latest revision of the found antic file
+@return 0 if found, anything else otherwise
+EOF
+Arcv__lookupAnticFile()
+{
+    local rev="$1"
+    local file="$2"
+    local -n __outAnticRevFile=$3
+    local -n __outAnticRev=$4
+    local relativeRepoSrcFile="${ARCV__VARS["backupsrcBasename"]}/${file}"
+    local backupsrcBasename="${ARCV__VARS["backupsrcBasename"]}"
+
+    while [ $rev -ge 0 ] ;do
+        local adir="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${rev}"
+        local anticFileRevision="${adir}/${relativeRepoSrcFile}"
+        #_log_vars anticFileRevision
+        if File__exists "${anticFileRevision}" ; then 
+            __outAnticRevFile="${anticFileRevision}"
+            __outAnticRev=$rev
+            return 0
+        fi
+        Int__dec rev
+    done
+    return 1 # Not found
+}
+
+:<<'EOF'
 Top function to export a revision to a tarbar
 @param [1] detected last revision number
 @param [2] The directory where the specified revision to check out was rebuilt. 
@@ -1944,7 +2294,7 @@ Arcv__exportToTarball()
         fi
     fi
 
-    cmd="pushd '${__inDiffRevFolder}' &>/dev/null && tar cvf '${tarFile}' '${ARCV__VARS["backupsrcBasename"]}' ; popd &>/dev/null"
+    cmd="_navCd '${__inDiffRevFolder}' && tar cvf '${tarFile}' '${ARCV__VARS["backupsrcBasename"]}' ; _backCd"
 
     #_log_vars __inDiffRevFolder
     #_log "$cmd" # DEBUG
@@ -1968,8 +2318,6 @@ Arcv__exportToTarball()
         #_log_high "Removing temporary diff folder ${__inDiffRevFolder}"
         File__deleteTempDir "${__inDiffRevFolder}"
     fi 
-
-
 }
 
 :<<'EOF'
@@ -2054,25 +2402,25 @@ EOF
     local gitrepoParentDir
     File__dirname "$gitrepo" gitrepoParentDir
     if [ ! -d "$gitrepo" ] ; then
-        pushd "$gitrepoParentDir" &>/dev/null 
+        _navCd "$gitrepoParentDir"
         git clone "${githubRepo}" git &> /dev/null
         if [ $? -eq 0 ] ; then
             _log_high "Successfully clone"
-            pushd "git" &>/dev/null
+            _navCd "git"
             if git checkout main &>/dev/null ; then
                 mainBranchExists=true
                 git pull origin main &>/dev/null
             else
                 mainBranchExists=false
             fi
-            popd &>/dev/null 
+            _backCd 
         else
             # we will init first a local repo
             mkdir "$gitrepo" &>/dev/null
             trapDirExits "$gitrepo"
             mainBranchExists=false
         fi
-        popd &>/dev/null 
+        _backCd 
     else
         mainBranchExists=true
     fi
@@ -2089,7 +2437,7 @@ EOF
 
     # Check if repo has to be initialized
     #
-    pushd "$gitrepo" &>/dev/null && git status && $mainBranchExists &>/dev/null
+    _navCd "$gitrepo" && git status && $mainBranchExists &>/dev/null
     if [ $? -ne 0 ]  ; then
         _log_high "Git repo needs to be initialized, user: $username, email: $useremail"
 
@@ -2124,7 +2472,7 @@ EOF
         local latestRelLog=""
         local latestRelLogShown=""
         Arcv__getInfoLatestReleaseLog latestRelLog
-        _log_vars latestRelLog
+        #_log_vars latestRelLog
         latestRelLogShown="$latestRelLog"
         Str__fitToLineWidth latestRelLogShown 80                
         Str__indent 4 latestRelLogShown
@@ -2149,7 +2497,7 @@ EOF
         if ! Input__sentence "Enter commit log" "$logMessage" logMessage ; then
             echo
             _log_err "Aborted"
-            popd &>/dev/null
+            _backCd
             _exit -1 ""
         fi
         echo
@@ -2177,11 +2525,11 @@ EOF
         git push origin main
 
 
-        popd &>/dev/null
+        _backCd
         _quit ""
     else
         _log_err "Aborted"
-        popd &>/dev/null
+        _backCd
         _exit -1 ""
     fi        
 
@@ -2347,7 +2695,8 @@ Arcv__branchoff()
 
     local branchSrcDir="${ARCV__VARS["checkout_folder"]}/${ARCV__VARS["branch"]}"
     if [ $coRes -eq 0 ] && [ -d "${branchSrcDir}" ]; then
-        pushd "${branchSrcDir}" &>/dev/null
+
+        _navCd "${branchSrcDir}"
         _log_status high "Branch '${ARCV__VARS["branch"]}' commit in '${branchSrcDir}'"
 
         local backupapptargetOnRepoHost="${ARCV__VARS["backuptargetOnRepoHost"]}/${ARCV__VARS["backupsrcBasename"]}.archive"
@@ -2360,7 +2709,8 @@ Arcv__branchoff()
             _log_status_end fail
             _exit -20 "Something went wrong during the branch commit. If necessary, you may now remove safely folder '${branchSrcDir}' and retry."
         fi
-        popd &>/dev/null
+
+        _backCd
     else
         _exit -20 "Something went wrong during the branch creation. If necessary, you may now remove safely folder '${branchSrcDir}' and retry."
     fi
@@ -2446,9 +2796,9 @@ Arcv__cleanup()
 {
     _log_dbg "cleanup callback called"
 
-    Sys__pool_sweepall Arcv__threadPool &>/dev/null
-
     File__deleteAllTempItems
+
+    Sys__pool_sweepall Arcv__threadPool &>/dev/null
     
     if [ $# -eq 1 ] && [ $1 -eq 0 ] ; then 
         _log_dbg "Normal exit (0)"
@@ -2529,62 +2879,6 @@ Arcv__checkIfDestDirOutsideSourceDir()
     if $isOutside ; then return 0; else return 1; fi
 }
 
-Arcv__checkRootDir_OLD()
-{
-    local storedRootPath
-    local expectedRoot="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive/ROOT"
-    local found=false
-    local initialBackupSrc="${ARCV__VARS["backupsrc"]}"
-
-    #echo "expectedRoot: '${expectedRoot}', backupsrc: ${ARCV__VARS["backupsrc"]}" >&2
-    #_log "backupsrc=${ARCV__VARS["backupsrc"]}, storedRootPath: $storedRootPath, expectedRoot:$expectedRoot"
-    if [ -f "${expectedRoot}" ] ; then
-        storedRootPath="$(cat "${expectedRoot}")"
-    #echo "storedRootPath before: '${storedRootPath}', ${ARCV__VARS["storage"]} -> ${ARCV__VARS["storageViaNfs"]}" >&2
-        Arcv__convertSrcPath storedRootPath
-    #echo "storedRootPath AFTER: '${storedRootPath}' =? ${ARCV__VARS["backupsrc"]} " >&2
-        if [ "$storedRootPath" = "${ARCV__VARS["backupsrc"]}" ] ; then 
-            found=true; 
-        #else
-        #    _log "expectedRoot does not exist"
-        fi
-    fi
-
-    while ! $found && [ "${ARCV__VARS["backupsrc"]}" != "/" ] && [ "${ARCV__VARS["backupsrc"]}" != "$HOME" ]; do
-        #_log_dbg "Arcv__checkRootDir backupsrc=${ARCV__VARS["backupsrc"]}, storedRootPath: $storedRootPath, expectedRoot:$expectedRoot"
-        Arcv__setBackupSrc "$(dirname "${ARCV__VARS["backupsrc"]}"})"
-        expectedRoot="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive/ROOT"
-
-        if [ -f "${expectedRoot}" ] ; then
-            storedRootPath="$(cat "${expectedRoot}")"
-            Arcv__convertSrcPath storedRootPath
-            if [ "$storedRootPath" = "${ARCV__VARS["backupsrc"]}" ] ; then 
-                found=true
-            #else
-            #    _log "expectedRoot does not exist"
-            fi
-        fi
-    done
-
-    #if ! $found ; then
-    #    _exit -1 "${expectedRoot} does not exist (repository corrupted?)"
-    #fi
-    if $found ; then
-    #echo "OK" >&2
-        _log_dbg "Arcv__checkRootDir: repo found: $expectedRoot"
-        ARCV__VARS["backupapptargetrootfile"]="$expectedRoot"
-        # ARCV__VARS["backupsrc"] already initialized
-        # ARCV__VARS["backupsrcBasename"] already initialized above
-        return 0
-    else
-        if [ "${ARCV__VARS["backupsrc"]}" = "$HOME" ] || [ "${ARCV__VARS["backupsrc"]}" = "/" ]  ; then
-            _log_dbg "Arcv__checkRootDir: No repo found, source folder restored to ${initialBackupSrc}"
-            Arcv__setBackupSrc "${initialBackupSrc}"
-        fi
-        return 1
-    fi
-}
-
 :<<'EOF'
 List the source folder existing in the repository
 EOF
@@ -2596,11 +2890,64 @@ Arcv__listSources()
     local srcRev="0"
     local srcHash="0"
     local entry=""
-    local allEntries="Source;Head;Hash;Owner"
+    local allEntries=""
+
+    if ${ARCV__VARS["force-refresh"]}; then      
+        Term__clear
+    fi
+
+    local curyear
+    Date__year curyear
+    local dateFormat='%e %b %H:%M' #'%Y-%m-%d %H:%M'
+    local dateFormatOtherYear='%e %b %H:%M (%Y)' #'%Y-%m-%d %H:%M'
+
+
+    #
+    # Build the table title
+    #
+    local storageHost
+    YAML__get ".host" storageHost
+    local externalIP
+    local storageIP
+    local storageHostname
+    Net__resolve "$storageHost" storageIP storageHostname
+    Net__externalIP externalIP
+    local title=""
+    if Str__isEmpty "$storageHostname" ; then
+        title="${storageIP} - ${externalIP}"
+    else
+        title="$storageHostname   ${storageIP}(LAN)   ${externalIP}(public)"
+    fi
+    #echo "${title}"
+    
+    declare -A tableParams
+    tableParams["title-col-span"]=6
+    tableParams["title"]="$title"
+    tableParams["title-fg"]="black"
+    tableParams["title-bg"]="yellow"
+    tableParams["title-align"]="stretch"
+    tableParams["col1-align"]="right"
+    tableParams["col3-align"]="right"
+    tableParams["col5-align"]="right"
+    tableParams["noescape"]=true
+    local fieldSep=","
+
+    #tableParams["header"]="yes"
+
+    #
+    # Table column header
+    #
+    allEntries=""
 
     local allSourceNames=()
     Arcv__getRepoSourceList "${repoFolder}" allSourceNames
 
+    local cnt=1
+    local total=${#allSourceNames[@]}
+    local totalArchiveSize=0  
+    local maxArchiveSize=0  
+    local tableRows=()
+    local archiveSizes=()
     for entry in "${allSourceNames[@]}" ; do
         local archivePath="${repoFolder}/${entry}.archive"
 
@@ -2627,12 +2974,125 @@ Arcv__listSources()
             srcRev="???"
             srcHash="???"
         fi
+        
+        #
+        # Retrieve repo size. By default use the SIZE file 
+        # unless -U is specified setting ARCV__VARS["force-refresh"] to 'true'
+        #
+        local archiveSize=""
+        local headUpdateTime
+        local actualDateFormat=""    
+        archiveSize="0"
 
-        allEntries="${allEntries}
-$entry;$srcRev;$srcHash;${userIds}"
+        if ${ARCV__VARS["force-refresh"]} ; then   
+            rm -f "${archivePath}/SIZE" &>/dev/null
+            printf "[$cnt/$total] $(_colorText "\\U2B24" blinking)  %s : computing size..." "$entry"
+        fi
+
+        #local useOnlyCache=true
+        #if ${ARCV__VARS["force-refresh"]} ; then useOnlyCache=true; fi
+        if Arcv__getRepoSize "${archivePath}" archiveSize headUpdateTime false &>/dev/null  ; then
+            archiveSizes+=($archiveSize)
+            Int__inc totalArchiveSize $archiveSize
+            Int__max $maxArchiveSize $archiveSize maxArchiveSize
+            # Convert size to readable size
+            Math__byteSize2ReadableSize $archiveSize 3 archiveSize 
+            archiveSize=${archiveSize// /} # Remove spaces
+        else
+            archiveSizes+=("0")
+            archiveSize="unknown"
+        fi
+        #Date__date
+
+        #
+        # Format the header time UTC as a readable date
+        #
+        local headTimeYear
+        Date__year headTimeYear "$headUpdateTime"
+        if Str__same "$headTimeYear" "$curyear" ; then 
+            actualDateFormat="${dateFormat}"
+        else 
+            actualDateFormat="${dateFormatOtherYear}"
+        fi
+        Date__date headUpdateTime "$headUpdateTime" "${actualDateFormat}"
+
+        local dataRow=""
+        dataRow+="${entry}"
+        dataRow+=${fieldSep}
+        dataRow+="${srcRev}"
+        dataRow+=${fieldSep}
+        dataRow+="${srcHash}"
+        dataRow+=${fieldSep}
+        dataRow+="${headUpdateTime}"
+        dataRow+=${fieldSep}
+        dataRow+="${userIds}"
+        dataRow+=${fieldSep}
+        dataRow+="${archiveSize}"
+        tableRows+=("${dataRow}")
+
+        #
+        # In verbose mode, refresh the table dynamically as sizes are retrieved when refreshed
+        #
+        if ${ARCV__VARS["force-refresh"]}; then      
+            Term__clear    
+            Array__toString tableRows "
+" allEntries
+            Array__toTextTableExt "${allEntries}" "$fieldSep" "" tableParams
+        fi
+
+        Int__inc cnt
+
     done
 
-    Array__toTextTable "${allEntries}" ";"
+    #
+    # Update the size bar at the right
+    #
+    #totalArchiveSize
+    local barSize=20
+    local cnt=0
+    local nbRows="${#tableRows[@]}"
+    while [ $cnt -lt $nbRows ] ; do
+        local asize="${archiveSizes[$cnt]}"
+        local bar
+        Str__progressBar bar "$asize" "$maxArchiveSize"
+        tableRows[$cnt]="${tableRows[$cnt]}${fieldSep}${bar}"
+        Int__inc cnt
+    done
+
+    #
+    # Add the total size row
+    #
+    if [ $totalArchiveSize -gt 0 ] ; then
+        Math__byteSize2ReadableSize $totalArchiveSize 1 totalArchiveSize    
+    
+        local dataRow=""
+        dataRow+=""
+        dataRow+=${fieldSep}
+        dataRow+=""
+        dataRow+=${fieldSep}
+        dataRow+=""
+        dataRow+=${fieldSep}
+        dataRow+=""
+        dataRow+=${fieldSep}
+        dataRow+=""
+        dataRow+=${fieldSep}
+        dataRow+="${totalArchiveSize}"
+        #dataRow+=${fieldSep}
+
+        tableRows+=("")
+        tableRows+=("${dataRow}")
+    fi
+    #
+    # Print the table from the entries array
+    #
+    Array__toString tableRows "
+" allEntries
+
+    if ! ${ARCV__VARS["force-refresh"]}; then      
+        Array__toTextTableExt "${allEntries}" "${fieldSep}" "" tableParams
+    fi
+
+    Term__restoreCursor        
 }
 
 :<<'EOF'
@@ -2667,18 +3127,54 @@ Arcv__repoSourceExists()
     Array__contains allSourceNames "$2"
 }
 
+:<<'EOF'
+This function enables to add an entry in the ROOT file of an authorized source folder according to the local host name and MAC.
+The ROOT file path is passed as first argument and the source folder 
+as second. 
+
+If arguments are not specified, they are set up from internal variables assumed to be initialized properly :
+ARCV__VARS["backuptarget"]
+ARCV__VARS["backupsrcBasename"]
+ARCV__VARS["backupsrc"]
+EOF
 Arcv__registerSource()
 {
-    local expectedRoot="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive/ROOT"
+    local expectedRoot=""
+    if [ $# -ge 1 ] ; then
+        expectedRoot="$1"
+    else
+        expectedRoot="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive/ROOT"
+    fi
+
+    local localSourcePath=""
+    if [ $# -ge 2 ] ; then
+        localSourcePath="$2"
+    else
+        localSourcePath="${ARCV__VARS["backupsrc"]}"
+    fi
+
     
     trapFileExits "${expectedRoot}"
 
-    echo "${ARCV__VARS["localHostName"]}/${ARCV__VARS["localHostMAC"]}: ${ARCV__VARS["backupsrc"]}" >> "${expectedRoot}"
+    echo "${ARCV__VARS["localHostName"]}/${ARCV__VARS["localHostMAC"]}: ${localSourcePath}" >> "${expectedRoot}"
     if [ $? -ne 0 ] ; then
         _exit -1 "Failed to update ${expectedRoot}. Permissions?"
     fi
 }
 
+:<<'EOF'
+This important function is used to check whether a local source folder, 
+which path is given by ARCV__VARS["backupsrc"], is under revision control.
+
+It searchs for a folder name inside the repository and a match is found on the following
+conditions
+- The folder name in the remote repository holds the same name as of the basename of the passed local source folder.
+- The local host and MAC are recognized to valid for the source folder.
+
+If there's no match, it tries to find a match with the parent folder, and so forth.
+
+If a match is found, Arcv__initSourceRepoReference is called and 0 is returned. Otherwise 1 is returned.
+EOF
 Arcv__checkRootDir()
 {
     local found=false
@@ -2687,6 +3183,19 @@ Arcv__checkRootDir()
     local backupsrcBasename="${ARCV__VARS["backupsrcBasename"]}"
     local expectedRoot="${ARCV__VARS["backuptarget"]}/${backupsrcBasename}.archive/ROOT"
 
+     #_log_vars initialBackupSrc backupsrcBasename expectedRoot
+
+    # By definition if an explicit source is specified for a check-out,
+    # do not check backupSrc is valid registered source folder
+    if ! Str__isEmpty "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
+        if File__fileExists "${expectedRoot}"; then
+            found=true  
+        else
+            # Error is handled in calling code
+            return 1
+        fi
+    fi
+
     while ! $found && [ "${backupSrc}" != "/" ] && [ "${backupSrc}" != "$HOME" ]; do
         #_log_dbg "Arcv__checkRootDir backupsrc=${ARCV__VARS["backupsrc"]}, storedRootPath: $storedRootPath, expectedRoot:$expectedRoot"
         #Arcv__setBackupSrc "$(dirname "${ARCV__VARS["backupsrc"]}"})"
@@ -2694,58 +3203,13 @@ Arcv__checkRootDir()
 
         #_log_vars backupSrc  expectedRoot
 
-        if [ -f "${expectedRoot}" ] ; then
-            # By definition if an explicit source is specified, do not check
-            # if backupSrc is valid registered source folder
-            if [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
+        if File__fileExists "${expectedRoot}" ] ; then
+            if Arcv__checkAndUpdateSourceDirAuthorizedLocationList "${expectedRoot}" "${backupSrc}" ; then
                 found=true
-                break
             fi
-
-            declare -A storedRoots
-
-            YAML__readAll "${expectedRoot}" storedRoots
-            YAML__normalize storedRoots
-            local storedRootPath
-            local storedRootHostNameAndMAC
-            for storedRootHostNameAndMAC in "${!storedRoots[@]}" ; do
-                storedRootPath="${storedRoots[${storedRootHostNameAndMAC}]}"
-                #_log_vars storedRootHostNameAndMAC  storedRootPath
-
-                local storedDataFields=()
-                Array__fromString "${storedRootHostNameAndMAC}" "/" storedDataFields
-
-                # An entry exists for localhost with a matching MAC
-                if [ "${storedRootHostNameAndMAC}" = "${ARCV__VARS["localHostName"]}/${ARCV__VARS["localHostMAC"]}" ] ; then
-                    # Also check the backup src path
-                    if  [ "${storedRootPath}" = "${backupSrc}" ] ; then
-                        found=true
-                        break
-                    else
-                        continue
-                    fi
-                fi
-
-                # Check if a registered source exists for the same host
-                # but a different MAC
-                #_log_vars storedDataFields[0] storedDataFields[1] storedRootPath ARCV__VARS["localHostName"] ARCV__VARS["localHostMAC"] backupSrc
-                if [ "${storedDataFields[0]}" = "${ARCV__VARS["localHostName"]}" ] &&  [ "${storedRootPath}" = "${backupSrc}" ] ; then
-                    #_log_dbg "NOT FOUND BUT same hostname entry found $storedRootHostNameAndMAC. must add ${ARCV__VARS["localHostMAC"]}"
-                    if Arcv__registerSource ; then
-                        found=true
-                        break
-                    fi
-                fi
-            done
         fi
 
         if $found ; then 
-            break
-        fi
-
-        # If an explicit source was specified and not found, 
-        # do not go upward in directory hierarchy and exit immediately.
-        if [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
             break
         fi
 
@@ -2765,15 +3229,73 @@ Arcv__checkRootDir()
     #_log_vars found
     if $found ; then
     #echo "OK" >&2
-        _log_dbg "Arcv__checkRootDir: repo found: $expectedRoot"
-        Arcv__setBackupSrc "${backupSrc}"
-        ARCV__VARS["backupapptargetrootfile"]="$expectedRoot"
+        _log_dbg "Arcv__checkRootDir: repo found: $expectedRoot"      
+        Arcv__initSourceRepoReference "$expectedRoot" "${backupSrc}" 
         return 0
     else
         if [ "${ARCV__VARS["backupsrc"]}" = "$HOME" ] || [ "${ARCV__VARS["backupsrc"]}" = "/" ]  ; then
             _log_dbg "Arcv__checkRootDir: No repo found, source folder restored to ${initialBackupSrc}"
             Arcv__setBackupSrc "${initialBackupSrc}"
         fi
+        return 1
+    fi
+}
+
+:<<'EOF'
+From the passed 'ROOT' file , checks whether the 
+the local source folder passed as 2nd argument is a valid source folder
+registered in the ROOT according to the current MAC and local host name setting. 
+If there's a match with the local host name and the source path but not 
+the MAC, then an entry is added into the ROOT file
+@param[1] path of the ROOT file
+@param[2] path to a local source folder
+@return 0 if the passed source folder is valid for the passed ROOT, 1 otherwise
+EOF
+Arcv__checkAndUpdateSourceDirAuthorizedLocationList()
+{
+    local __inRootFile="$1"
+    local __inBackupSrc="$2"
+    local isValidLocation=false
+
+    declare -A storedRoots
+
+    YAML__readAll "${__inRootFile}" storedRoots
+    YAML__normalize storedRoots
+    local storedRootPath
+    local storedRootHostNameAndMAC
+    for storedRootHostNameAndMAC in "${!storedRoots[@]}" ; do
+        storedRootPath="${storedRoots[${storedRootHostNameAndMAC}]}"
+        #_log_vars storedRootHostNameAndMAC  storedRootPath
+
+        local storedDataFields=()
+        Array__fromString "${storedRootHostNameAndMAC}" "/" storedDataFields
+
+        # An entry exists for localhost with a matching MAC
+        if [ "${storedRootHostNameAndMAC}" = "${ARCV__VARS["localHostName"]}/${ARCV__VARS["localHostMAC"]}" ] ; then
+            # Also check the backup src path
+            if  [ "${storedRootPath}" = "${__inBackupSrc}" ] ; then
+                isValidLocation=true
+                break
+            else
+                continue
+            fi
+        fi
+
+        # Check if a registered source exists for the same host
+        # but a different MAC
+        #_log_vars storedDataFields[0] storedDataFields[1] storedRootPath ARCV__VARS["localHostName"] ARCV__VARS["localHostMAC"] __inBackupSrc
+        if [ "${storedDataFields[0]}" = "${ARCV__VARS["localHostName"]}" ] &&  [ "${storedRootPath}" = "${__inBackupSrc}" ] ; then
+            #_log_dbg "NOT FOUND BUT same hostname entry found $storedRootHostNameAndMAC. must add ${ARCV__VARS["localHostMAC"]}"
+            if Arcv__registerSource "${__inRootFile}" "${__inBackupSrc}"; then
+                isValidLocation=true
+                break
+            fi
+        fi
+    done
+
+    if $isValidLocation ; then 
+        return 0
+    else
         return 1
     fi
 }
@@ -3026,7 +3548,7 @@ Arcv__resolveStoragePath()
 
         if ${ARCV__VARS["verbose"]} ; then
             if ! ${ARCV__VARS["rev"]} && ! ${ARCV__VARS["hash"]} && ! ${ARCV__VARS["revisionlog"]} && ! ${ARCV__VARS["releaselog"]} && ! ${ARCV__VARS["checkformodif"]}; then
-                _log_high "arcv run from $myhostName, storage on $storageHostname will be accessed vi mountpoint $storageViaNfs"
+                _log_high "arcv run from $myhostName, storage on $storageHostname will be accessed via mountpoint $storageViaNfs"
             fi
         fi
 
@@ -3052,7 +3574,9 @@ If 'diff_rev' value is other as 'head', it returns path to a temporary folder in
 Note: diff_rev actualy is not just used for diffing. It generally gives a revision number on which
 to apply the command.
 
-@param [1] out diff folder
+@param [1] in revision number
+@param [2] out diff folder
+@param [3] out bool telling if diff folder is a created temporary one
 
 EOF
 Arcv__getRevisionImage() {
@@ -3073,8 +3597,18 @@ Arcv__getRevisionImage() {
     elif [ -z "${__inRevisionNumber}" ] ; then 
         __in_diffRevFolder="${ARCV__VARS["backupappversiontarget"]}"
     elif [ -n "${__inRevisionNumber}" ] ; then 
+        
         if ! Int__isInt "${__inRevisionNumber}" ; then
             _exit -1 "'${__inRevisionNumber}' is not a valid revision number or tag"
+        fi
+
+        local rootRevision=0
+
+        # For circular revisions, the revision contains all data 
+        # so check directly and only the target folder
+        local revCycle=${Arcv__currentRepoData["rev-cycle"]:-0}
+        if Int__not0 $revCycle ; then
+            rootRevision="${__inRevisionNumber}"
         fi
 
         __in_diffRevFolder="${ARCV__VARS["backupappversiontarget"]}"
@@ -3085,7 +3619,7 @@ Arcv__getRevisionImage() {
             _log_high "Rebuilding version "${__inRevisionNumber}" in folder $tdir"
         fi
         # Copy the root revision, here it is zero and start updating from diff rev till no more changes are applied
-        local rootdir="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive0"
+        local rootdir="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${rootRevision}"
 
         # Check if the repository is valid any way
         if [ ! -d "$rootdir" ] ; then _exit -7 "Root archive folder '$rootdir' does not exist. Aborted" ; fi
@@ -3114,56 +3648,93 @@ Arcv__getRevisionImage() {
 
         __in_diffRevFolder="$tdir"
 
+        # For circular revisions, this stops here
+        if Int__not0 $revCycle ; then
+            return 0
+        fi
+
+        declare -A globalAddMap
+        declare -A globalDropMap
+
+        local backupsrcBasename="${ARCV__VARS["backupsrcBasename"]}"
         rev=$(( ${__inRevisionNumber} + 1))
         while [ $rev -gt 0 ] ;do
             rev=$(($rev - 1))
-            local adir="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${rev}"
-            if [ -d "$adir" ]  ; then
-                if [ -f "${adir}/DROPPED" ] ; then
-                    cat "${adir}/DROPPED" >> "${excludeDroppedFilesList}"
-                fi
-                #_log_vars rev excludeDroppedFilesList adir tdir
-                #_log_high "${excludeDroppedFilesList}, $tdir"
-                #cat "${excludeDroppedFilesList}"
-                # t=perserve times, p=perserve permissions, go=perserve group and owner
 
-                # IMPORTANT
-                # - option 'u' enables to update file only if the new file to copy is newer
-                #   If not used, then any file whose timestamp changed is copied, even if it is older, which we don't want here
-                # - option -@-1 enables 
-                #--info=COPY,DEL,REMOVE: seems not to work
-                #--info=NAME1
-                #--no-prune-empty-dirs no necessary here
-                local resCopy="$(rsync --exclude-from="${excludeDroppedFilesList}" --info=NAME1 -au -@-1 "$adir/" "$tdir/")" #a = -rlptgoD #--delete-excluded   # --modify-window=1
+            local adir="${ARCV__VARS["backupapptarget"]}/${backupsrcBasename}.archive${rev}"
 
-                if _debugging ; then
-                    _log_vars rev resCopy
-                    cat "${excludeDroppedFilesList}"
-                fi
-:<<'EOF'
-                # NOTE: This reveals to be useless since handled properly with --exclude-from= and --delete-excluded 
-                #UPDATE 29/05: --delete-excluded  also deletes files not part of the copy
-                # not only files part of the exclude-from
-                # Clean up dropped files
-                local droppedFile=""
-                while IFS='' read -r droppedFile ; do
-                    _log "deleting ${tdir}/${droppedFile:2}"
-                    rm "${tdir}/${droppedFile:2}"
-                done < <(cat "${excludeDroppedFilesList}")
-EOF
-
-                # 18/7/2026: This is commented out, because in the test checkoutreltag, resCopy is empty when the revision is handled where subdir/file_D.txt was added.
-                # whereas most time at least ./ is listed
-:<<'EOF'
-                # Stop rewinding in revision, when no more copy was done : AND IF THERE WAS ONLY A REMOVAL ????
-                if [ -z "$resCopy" ] ; then
-                    __in_diffRevFolder="$tdir"
-                    break
-                fi
-EOF
-            else
+            # Internal error case
+            if ! File__dirExists "$adir" ; then
                 _log_warn "Archive folder '$adir' does not exist as expected. Skipped."
+                continue
             fi
+            
+            unset currentDropMap # required to remove previous values because variables are dynamic
+            declare -A currentDropMap
+            Arcv__readRepoFileList currentDropMap "${adir}/DROPPED" $rev
+            Map__merge currentDropMap globalAddMap globalDropMap "none-right"
+
+            unset currentAddMap # required to remove previous values because variables are dynamic
+            declare -A currentAddMap
+            Arcv__readRepoFileList currentAddMap "${adir}/ADDED" $rev
+            Map__merge currentAddMap globalDropMap globalAddMap "none-right"
+
+            Map__printKeys globalDropMap "
+" "- /" > "${excludeDroppedFilesList}"
+
+            # The following is replaced with the more complex block thereafter in order to handle
+            # legacy DROPPED file format
+            # if [ -f "${adir}/DROPPED" ] ; then cat "${adir}/DROPPED" >> "${excludeDroppedFilesList}"; fi
+
+            # When only files were removed, the backupsrcBasename folder may not exist at all 
+            # the rsync command thereby would fail. Therefore, it is also important to proceeed
+            # with the above block first. 
+            if ! File__dirExists "$adir/${backupsrcBasename}" ; then
+                continue
+            fi
+
+            #_log_vars rev excludeDroppedFilesList adir tdir
+            #_log_high "${excludeDroppedFilesList}, $tdir"
+            #cat "${excludeDroppedFilesList}"
+            # t=perserve times, p=perserve permissions, go=perserve group and owner
+
+            # IMPORTANT
+            # - option 'u' enables to update file only if the new file to copy is newer
+            #   If not used, then any file whose timestamp changed is copied, even if it is older, which we don't want here
+            # - option -@-1 enables 
+            #--info=COPY,DEL,REMOVE: seems not to work
+            #--info=NAME1
+            #--no-prune-empty-dirs no necessary here
+            
+            local resCopy="$(rsync --exclude-from="${excludeDroppedFilesList}" --info=NAME1 -au -@-1 "$adir/${backupsrcBasename}/" "$tdir/${backupsrcBasename}")" #a = -rlptgoD #--delete-excluded   # --modify-window=1
+
+            if _debugging ; then
+                _log_vars rev resCopy
+                _log_vars excludeDroppedFilesList
+                cat "${excludeDroppedFilesList}"
+                _log "rsync '$adir/' '$tdir/'"
+            fi
+:<<'EOF'
+            # NOTE: This reveals to be useless since handled properly with --exclude-from= and --delete-excluded 
+            #UPDATE 29/05: --delete-excluded  also deletes files not part of the copy
+            # not only files part of the exclude-from
+            # Clean up dropped files
+            local droppedFile=""
+            while IFS='' read -r droppedFile ; do
+                _log "deleting ${tdir}/${droppedFile:2}"
+                rm "${tdir}/${droppedFile:2}"
+            done < <(cat "${excludeDroppedFilesList}")
+EOF
+
+            # 18/7/2026: This is commented out, because in the test checkoutreltag, resCopy is empty when the revision is handled where subdir/file_D.txt was added.
+            # whereas most time at least ./ is listed
+:<<'EOF'
+            # Stop rewinding in revision, when no more copy was done : AND IF THERE WAS ONLY A REMOVAL ????
+            if [ -z "$resCopy" ] ; then
+                __in_diffRevFolder="$tdir"
+                break
+            fi
+EOF
         done
 
 :<<'EOF'
@@ -3172,14 +3743,18 @@ EOF
 EOF
 
         # Ensure that excluded files are not there
+        #cat "${excludeDroppedFilesList}" # DEBUG
+
         local droppedFile=""
         while IFS='' read -r droppedFile ; do
-            droppedFile="${tdir}/${droppedFile:2}"
-            #_log_dbg "deleting ${droppedFile}" >&2
+            droppedFile="${tdir}/${backupsrcBasename}/${droppedFile:3}"
+            #_log_vars droppedFile # DEBUG
             if [ -f "$droppedFile" ] ; then 
                 rm -f "${droppedFile}"
             elif [ -d "$droppedFile" ] ; then 
                 rm -rf "${droppedFile}"
+            #else  #  DEBUG ONLY
+            #    _log  "NOT FOUND '$droppedFile'"
             fi
         done < <(cat "${excludeDroppedFilesList}")
 
@@ -3191,6 +3766,38 @@ EOF
             _log "Rebuild is complete and stopped at rev $rev"
         fi
     fi
+}
+
+:<<'EOF'
+Updates the passed map file->rev according to the file list of the passed repo file
+(can be the ADDED or the DROPPED).
+@param[1] map revision revived file path (relative to source) ->  revision where revived
+@param[2] path to repo file
+@param[3] revision of repo file
+EOF
+Arcv__readRepoFileList() {
+    local -n __inMapItems=$1
+    local repoFile="$2"
+    local revision="$3"
+
+    local repoFileLines=()
+    if ! File__readLines "${repoFile}" repoFileLines; then
+        return 0    #  File may not exist
+    fi
+
+    #Str__trimEnd "${repoFileLinesItem}" repoFileLinesItem
+    _foreach repoFileLines '
+        local relativeFilePath=""
+        if Str__startsWith "${repoFileLinesItem}" "- /"; then
+            relativeFilePath="${repoFileLinesItem:3}"
+        else
+            # 3 -> 2 first char + slash separator
+            relativeFilePath="${repoFileLinesItem:$((3 + ${#ARCV__VARS["backupsrcBasename"]}))}"
+        fi
+
+        [ ! -z "${relativeFilePath}" ] && __inMapItems[${relativeFilePath}]=$revision
+'
+        #_log_vars repoFileLinesItem relativeFilePath revision # DEBUG
 }
 
 :<<'EOF'
@@ -3299,6 +3906,8 @@ Arcv__menuFileAction() {
     local fileMenuAsArray=()
     shift
     local -n automaticLog=$1
+    shift
+    local -n __outRelFilePath=$1
 
     if Desktop__isAvailable ; then
         _loadDep "meld"
@@ -3328,7 +3937,7 @@ ${changedFilePath}"
             fi
 
             fileMenuAsArray+=("$changedFilePath")
-
+            __outRelFilePath+=("$changedFilePath")
             cnt=$(( $cnt + 1))
             
         fi
@@ -3524,8 +4133,9 @@ Arcv__listFilesForPermissionChangeCheck() {
     local -n __inExplicitFiles="$2" # relative to inFolder
     local -n __inExplicitDirs="$3" # relative to inFolder
     local -n __outLsData=$4
+    _log_dbg Arcv__listFilesForPermissionChangeCheck
 
-    if pushd "${__inFolder}" &>/dev/null ; then    
+    if _navCd "${__inFolder}" ; then    
 
         # Set up a list of file to be checked
         # When there is no explicit file provided, take all files which are not a directory
@@ -3569,7 +4179,7 @@ Arcv__listFilesForPermissionChangeCheck() {
         local lsForPermCheck="$(echo "${lsFileEntriesSignatures}
 ${lsDirEntriesSignatures}")"
 
-        popd &>/dev/null
+        _backCd
         __outLsData="$lsForPermCheck"
     else
         __outLsData=""
@@ -3590,6 +4200,8 @@ Arcv__listPermissionChanges() {
     local sameFileLsData="0"
     local headSrcDir
     Arcv__getInfo "head-image-dir" headSrcDir
+
+    _log_dbg Arcv__listPermissionChanges
 
     # If the file list is not specified , take the full list from the head revision as a reference
     if [ ${#__inSameFiles[@]} -eq 0 ] ; then
@@ -3654,6 +4266,8 @@ Arcv__listPermissionChanges() {
 
 Arcv__getDirsFortPermissionChangeCheck()
 {
+    _log_dbg Arcv__getDirsFortPermissionChangeCheck
+
     local -n __outDirsForPermCheck=$1
     local __inDeleteFiles="$2"
 
@@ -3694,6 +4308,8 @@ Arcv__listPermissionChange() {
     local -n automaticLogPerm=$4
     local -n __inPermissionOnlyChangeFilesPerm=$5
     local __listSilentmode=$6
+
+    _log_dbg Arcv__listPermissionChange
 
     Str__trim "$diffLines1Item" diffLines1Item
     Str__trim "$diffLines2Item" diffLines2Item
@@ -3762,6 +4378,20 @@ Arcv__listExcludedFilePatterns() {
     fi
 }
 
+:<<'EOF'
+From the passed lines of file paths (arg 3), completes the revision log passed as arg 4 with all file paths resolved relatively to the reference dir passed in arg 2. The list of relative file paths are also returned in the array passed by reference as arg 5
+
+The list of files is prepended with the title passed as arg 1 following by ':'.
+
+If initial revision log is not null, it appends an end dot beforehand.
+
+
+@param[2] title for the revision log to be completed with the files supplied in arg 2
+@param[2] root reference folder
+@param[3] lines of absolute file path 
+@param[4] ref to var storing the revision log reference folder
+@param[5] list of file paths resolved relatively to the root 
+EOF
 Arcv__listCommitFiles() {
     local title="$1"
     shift
@@ -3770,6 +4400,9 @@ Arcv__listCommitFiles() {
     local __inFileLines="$1"
     shift
     local -n automaticLog=$1
+    shift
+    local -n __outRelFilePath=$1
+
     #_log_vars __inFileLines
     Str__trim "${__inFileLines}" __inFileLines
 
@@ -3798,7 +4431,7 @@ Arcv__listCommitFiles() {
             fi
 
             newAutoLog="${newAutoLog} ${__relPathDiffFile}"
-
+            __outRelFilePath+=("${__relPathDiffFile}")
         fi
     done < <(echo "${__inFileLines}")
 
@@ -3927,6 +4560,12 @@ Arcv__priv_addEXCLUDE()
     done
 }
 
+:<<'EOF'
+Initializes internal source-related variables from an explicit source:
+
+  ARCV__VARS["backupsrcBasename"]
+  ARCV__VARS["backupsrc"]
+EOF
 Arcv__setExplicitSource()
 {
     # If explicit source is set, the value ARCV__VARS["backupsrc"] is set to ./ARCV__VARS["explicit_backupsrc"]
@@ -3934,7 +4573,11 @@ Arcv__setExplicitSource()
     File__cwd __cwd
     local __explicitSource="$1"
     ARCV__VARS["backupsrcBasename"]="${__explicitSource}"
-    ARCV__VARS["backupsrc"]="${__cwd}/${ARCV__VARS["backupsrcBasename"]}"
+    if Str__isEmpty "${ARCV__VARS["checkout"]}" ; then
+        ARCV__VARS["backupsrc"]="${__cwd}"
+    else 
+        ARCV__VARS["backupsrc"]="${__cwd}/${ARCV__VARS["backupsrcBasename"]}"
+    fi
 }
 
 Arcv__getInfo()
@@ -3958,6 +4601,11 @@ Arcv__getMatchInfo()
 
     __outInfoValue=()
     __outInfoNames=()
+
+    if Str__contains "fetch-url" "${__inInfoName}"  ; then
+        __outInfoValue+=("${Arcv__currentRepoData["fetch-url"]}")
+        __outInfoNames+=("fetch-url")
+    fi
 
     if Str__contains "latest-release-tag" "${__inInfoName}"  ; then
         local latestTag=""
@@ -4010,6 +4658,24 @@ Arcv__getMatchInfo()
         Arcv__getInfoAppArchiveRootDirPath __rootDir
         __outInfoValue+=("${__rootDir}/")
         __outInfoNames+=("src-dir")
+    fi
+
+    if Str__contains "ishead" "${__inInfoName}" ; then
+        local headRev=""
+        Arcv__getInfoHeadRevision headRev 
+        if [ "${ARCV__VARS["current-revision"]}" = "$headRev" ] ; then
+            __outInfoValue+=("true")
+        else
+            __outInfoValue+=("false")
+        fi
+        __outInfoNames+=("ishead")
+    fi
+
+    if Str__contains "head-rev" "${__inInfoName}" ; then
+        local headRev=""
+        Arcv__getInfoHeadRevision headRev 
+        __outInfoValue+=("${headRev}")
+        __outInfoNames+=("head-rev")
     fi
 
     if Str__contains "head-dir" "${__inInfoName}" ; then
@@ -4084,6 +4750,23 @@ Arcv__getInfoAppArchiveRootDirPath()
     __outPath="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive"
 }
 
+
+
+:<<'EOF'
+Returns head revision
+@param[1] ref to the var used to store the returned value
+preconditions: ARCV__VARS["backuptarget"] and ARCV__VARS["backupsrcBasename"] must have been defined
+EOF
+Arcv__getInfoHeadRevision()
+{
+    local __rootDir=""
+    Arcv__getInfoAppArchiveRootDirPath __rootDir
+    local -n __outPath=$1
+    local lines=()
+    File__readLines "${__rootDir}/head/REV" lines
+    __outPath="${lines[0]}"
+}
+
 :<<'EOF'
 Returns head folder path of the current source in the repository
 @param[1] ref to the var used to store the returned value
@@ -4095,6 +4778,18 @@ Arcv__getInfoHeadDirPath()
     Arcv__getInfoAppArchiveRootDirPath __rootDir
     local -n __outPath=$1
     __outPath="${__rootDir}/head"
+}
+
+:<<'EOF'
+Returns the last update time of the head revision
+@param[1] ref to the var used to store the returned value
+EOF
+Arcv__getInfoHeadTime()
+{
+    local __rootDir=""
+    Arcv__getInfoAppArchiveRootDirPath __rootDir
+    local -n __outTime=$1
+    File__modificationTimeEpoch "${__rootDir}/head/REV" "${!__outTime}"
 }
 
 :<<'EOF'
@@ -4203,10 +4898,10 @@ Arcv__getInfoLatestReleaseTagRevision()
     local tagRev=""
     local relhistory="$(Arcv__showReleaseHistory false plain)"
     read tagRev < <(echo "${relhistory}" | head -n1)
-    if Str__startsWith "$tagRev" "No release" ; then
+    if Str__isEmpty "$tagRev" || Str__startsWith "$tagRev" "No release" ; then
         __outRev=""
         return 1
-    else        
+    else      
         __outRev="$(echo "$tagRev" | awk -F' '  '{ printf("%s",$2); }' )"
     fi
 }
@@ -4223,7 +4918,7 @@ Arcv__getInfoLatestReleaseLog()
     local tagRev=""
     local relhistory="$(Arcv__showReleaseHistory false plain)"
     read tagRev < <(echo "${relhistory}" | head -n1)
-    if Str__startsWith "$tagRev" "No release" ; then
+    if Str__isEmpty "$tagRev" || Str__startsWith "$tagRev" "No release" ; then
         __outLog=""
         return 1
     else        
@@ -4245,7 +4940,7 @@ EOF
 Arcv__getInfoCurrentRevisionLog()
 {
     local -n __outLog=$1
-    local curRev=$($0 rev)
+    local curRev="${ARCV__VARS["current-revision"]}"
     local yesInputForced=false
     local verboseActive=false
     local history=""
@@ -4312,7 +5007,7 @@ Arcv__getInfoLatestReleaseTag()
     local relhistory="$(Arcv__showReleaseHistory false plain)"
     Str__trim "$relhistory" relhistory
     read tagRev < <(echo "${relhistory}" | head -n1)
-    if Str__startsWith "$tagRev" "No release" ; then
+    if Str__isEmpty "$tagRev" || Str__startsWith "$tagRev" "No release" ; then
         __outRev=""
         return 1
     else        
@@ -4334,6 +5029,120 @@ Arcv__getInfoSourceFileRelPath()
     __outRelFilePath="${relSrcRootDir}/$1"
 }
 
+:<<'EOF'
+Updates the size file following a commit
+2 cases : SIZE file already exists, only the size of new head is used to update total size based on the old header size
+@param[1] archive path
+@param[2] archive folder of the new committed revision
+EOF
+
+Arcv__getUpdateRepoSizeFile()
+{
+    local __inArchivePath="$1" # backupapptarget
+    local __inBackupappversiontarget="$2"
+    local sizeFile="${__inArchivePath}/SIZE"
+
+    if File__readLines "$sizeFile" sizeFileLines 2>/dev/null ; then
+        if [ ${#sizeFileLines[@]} -eq 3 ]  ; then
+            local oldSize="${sizeFileLines[0]}"
+            local oldHeadSize="${sizeFileLines[1]}" 
+            local oldSizeTimestamp="${sizeFileLines[2]}"
+
+            local newSizeTimestamp=0
+            Arcv__getRepoHeadTime "${__inArchivePath}" newSizeTimestamp
+            local newHeadSize=0
+            File__getSize "${__inArchivePath}/head" newHeadSize
+            local newRevSize=0
+            File__getSize "${__inBackupappversiontarget}" newRevSize
+            local newSize=0
+            # Note: later remove also the size of the dropped file,
+            # this could matter!
+            Int__calc_r "( ($oldSize - $oldHeadSize) + $newRevSize + $newHeadSize)" newSize 
+
+            sizeFileLines[0]="${newSize}"
+            sizeFileLines[1]="${newHeadSize}"
+            sizeFileLines[2]="${newSizeTimestamp}"
+            File__writeLines "$sizeFile" sizeFileLines
+
+            return 0
+        fi
+    fi
+
+    # This forces update of the size file
+    local archiveSize
+    local headUpdateTime
+    Arcv__getRepoSize "${__inArchivePath}" archiveSize headUpdateTime  &>/dev/null
+}
+
+:<<'EOF'
+Retries the head's update time from the passed repository path. 
+@param[1] archive path
+@param[2] out archive head revision time
+EOF
+Arcv__getRepoHeadTime()
+{
+    local __inArchivePath="$1"
+    local -n __outRepoHeadTime=$2
+    local revFile="${__inArchivePath}/head/REV"
+    File__modificationTimeEpoch "$revFile" "${!__outRepoHeadTime}"
+}
+
+:<<'EOF'
+Computes the size of the passed repository path. 
+It may rely on cached data if no commit was done meanwhile.
+
+@param[1] archive path
+@param[2] out archive size in bytes
+@param[3] out archive head revision time
+@param[4] optional tells whether to force using only cached data (false by default)
+EOF
+Arcv__getRepoSize()
+{
+    local __inArchivePath="$1"
+    local -n __outArchiveSize=$2
+    local -n __outArchiveHeadRevTime=$3
+    local onlyCached=false
+    if [ $# -ge 4 ] ; then
+        onlyCached=$4
+    fi
+
+    local revFileModifTime=0
+    Arcv__getRepoHeadTime "${__inArchivePath}" revFileModifTime
+    __outArchiveHeadRevTime="${revFileModifTime}"
+    local sizeFile="${__inArchivePath}/SIZE"
+    local sizeFileLines=()
+    if Int__not0 "$revFileModifTime" && File__readLines "$sizeFile" sizeFileLines 2>/dev/null; then
+        if [ ${#sizeFileLines[@]} -eq 3 ]  ; then
+            local size="${sizeFileLines[0]}"
+            #local headSize="${sizeFileLines[1]}" # Not useful here
+            local sizeTimestamp="${sizeFileLines[2]}"
+            if Int__isInt "${size}" && Int__isInt "${sizeTimestamp}"  ; then
+                # If less than a week, return the cache data?
+                if [ $revFileModifTime -eq $sizeTimestamp ] ; then
+                    __outArchiveSize="${size}"
+                    return 0
+                fi
+
+            fi
+        fi
+    fi
+    if $onlyCached ; then 
+        return 1
+    fi
+
+    # If not valid and updated size could be read above, 
+    # Get size from FS and generate SIZE file
+    local __outArchiveHeadSize=""
+    if File__getSize "${__inArchivePath}" "${!__outArchiveSize}" && File__getSize "${__inArchivePath}/head" __outArchiveHeadSize; then
+        sizeFileLines=()
+        sizeFileLines+=("${__outArchiveSize}")
+        sizeFileLines+=("${__outArchiveHeadSize}")
+        sizeFileLines+=("$revFileModifTime")
+        File__writeLines "$sizeFile" sizeFileLines
+    else
+        return 1
+    fi
+}
 
 :<<'EOF'
 Converts --from and --to arguments to actual revision numbers, ensuring to return the revision number for a tag
@@ -4448,17 +5257,11 @@ Arcv__destroy()
     Input__confirm_high "Are your sure to continue?" || _exit -1 "Aborted"
     echo
     local baseSourceFolderName=""
-    if Input__sentence "Please enter the name of source folder to proceed" "" baseSourceFolderName ; then
+    if Input__sentence "Please enter the name of source folder to proceed" "${ARCV__VARS["backupsrcBasename"]}" baseSourceFolderName ; then
         if [ "${baseSourceFolderName}" = "${ARCV__VARS["backupsrcBasename"]}" ] ; then
             Input__timeoutKeystroke "Going to rip away '${baseSourceFolderName}' from repo in " 7 " seconds. Press any key to start immediately."
-            local cmd="rm -rf '${repoSrc}'"
-            local res=1
-            Arcv__opStart "$cmd" true
-            eval "$cmd"
-            res=$?
-            Arcv__opEnd $res
-            echo
-            if [ $res -eq 0 ] ; then
+            
+            if _monitor "Removing entry in repository" rm -rf "${repoSrc}" ; then
                 _log_high "'${baseSourceFolderName}' is no more under revision control and all related files were deleted in repository."
             else
                 _exit -1 "Please check content of ${repoSrc}"
@@ -4482,6 +5285,8 @@ Arcv__loadDep()
 
 Arcv__showCheckinHeader()
 {
+    if ${ARCV__VARS["push"]} ; then return 0 ; fi
+
     local __inCheckRes=$1
     local __inArcVersion=$2
     local __inHash="$3"
@@ -4490,8 +5295,19 @@ Arcv__showCheckinHeader()
     if [ $__inCheckRes -ne 0 ] && ! ${ARCV__VARS["checkformodif"]} && ! ${ARCV__VARS["subproc"]}; then        
         Term__clear                    
     fi
+    # https://symbl.cc/en/collections/arrow-symbols/
+    local srcTitle="SRC: ${ARCV__VARS["backupsrc"]}"
+    local currentSrcBasename=""
+    File__basename "${ARCV__VARS["backupsrc"]}" currentSrcBasename
+    if ! Str__same "$currentSrcBasename" "${ARCV__VARS["backupsrcBasename"]}" ; then
+        srcTitle+=$'\U276F'$'\U276F'
+        #srcTitle+=$'\U276F'$'\U276F'$'\U276F'
+        srcTitle+=" "
+        srcTitle+="$(_colorText ${ARCV__VARS["backupsrcBasename"]} black_bold cyan)"
+    fi
 
-    _log_high "SRC: ${ARCV__VARS["backupsrc"]}"
+
+    _log_high "${srcTitle}"
     local lastVerMsg;
     if [ $__inArcVersion -eq 0 ] ; then
         lastVerMsg=$(_colorText "${ARCV__VARS["backupsrcBasename"]} is the first archived version" "white_reverse")
@@ -4518,6 +5334,418 @@ Arcv__showCheckinHeaderStatus()
     fi
     #_log_high "$category for folder '${ARCV__VARS["backupsrc"]}'"
     _log_high "$category"
+}
+
+:<<'EOF'
+Fetches the content of an URL into the specified output folder.
+If the operation is done during a fetch-update during a checkin operation, 
+then the fetched content is only kept if it differs from the current revision.
+@param[1] URL. When "" or none supplied, the following Arcv__currentRepoData["fetch-url"] read from repo config file is used
+@param[2] output folder. When "" or none is supplied, it is the current folder.
+@param[3] a boolean telling whether this operation is done during a fetch-update of an existing source
+EOF
+Arcv__fetchUpdate() {
+    local __inURL=""
+    if [ $# -ge 1 ] && ! _undefined "$1" ; then
+        __inURL="$1"
+    else
+        __inURL="${Arcv__currentRepoData["fetch-url"]}"
+    fi
+
+    # No value stored in repository, or --fetch used with a regular source not imported from URL
+    if Str__isEmpty "${__inURL}"  ; then        
+        return 1
+    fi
+
+    local __inOutputFolder=""
+    if [ $# -ge 2 ] && ! _undefined "$2" ; then
+        __inOutputFolder="$2"
+    else
+        __inOutputFolder="."
+    fi
+
+    local retDump=1
+    if mongodb__isURL "${__inURL}" ; then
+        Arcv__fetchUpdateMongoDB "${__inURL}" "${__inOutputFolder}"
+        retDump=$?
+    else
+        _log_warn "'${__inURL}' is not a supported URI type"
+    fi
+
+    if ! Int__not0 "$retDump" ; then
+        local __inIsFetchUpdate=false
+        if [ $# -ge 3 ] && ! _undefined "$3" ; then
+            __inIsFetchUpdate=$3
+        fi    
+
+        if ${__inIsFetchUpdate} ; then
+            if $0 diff --fmt=plain &>/dev/null ; then
+                # If there is no change, checkout the header
+                $0 -y co &>/dev/null
+            fi
+        fi
+    fi
+    return $retDump
+}
+
+:<<'EOF'
+Gets a MongoDB dump from the passed URI.
+@param[1] MongoDB URI
+@param[2] output folder
+EOF
+Arcv__fetchUpdateMongoDB() {
+    local __inURL="$1"
+    local __inOutputFolder="$2"
+
+    if ! mongodb__decodeURL "${__inURL}" Arcv__mongodb[host] Arcv__mongodb[port] Arcv__mongodb[dbName] ; then
+        _log_error "Failed to decode MongoDB URI '${__inURL}' (invalid?)"
+        return 1
+    fi
+
+    #_log_vars __inURL
+    local useSSHIfDistant=false    
+    local dumpVerNums=()
+    mongodb__dumpVersion dumpVerNums
+    if Array__sizeMatch dumpVerNums 0 ; then 
+        useSSHIfDistant=true
+    elif [ "${dumpVerNums[0]}" -lt 100 ] ; then 
+        useSSHIfDistant=true
+    else
+        useSSHIfDistant=false
+    fi
+    # Array__print dumpVerNums "." # DEBUG
+    #_log_vars useSSHIfDistant # DEBUG
+
+    local archivDatabaseName="mongo-db-${Arcv__mongodb[dbName]}.gz"
+    mongodb__dump "${__inURL}" "${__inOutputFolder}/${archivDatabaseName}" $useSSHIfDistant
+}
+
+
+:<<'EOF'
+Pushes data previously fetched to the specified URL. 
+
+This function can only be called if a matching valid source was found in the repository
+
+@param[1] URL. When "" or none supplied, the following Arcv__currentRepoData["fetch-url"] read from repo config file is used
+@param[2] input source folder. When "" or none is supplied, it is the current folder.
+EOF
+Arcv__push() {
+    local __inURL=""
+    if [ $# -ge 1 ] && ! _undefined "$1" ; then
+        __inURL="$1"
+    else
+        __inURL="${Arcv__currentRepoData["fetch-url"]}"
+    fi
+
+    # No value stored in repository, or --fetch used with a regular source not imported from URL
+    if Str__isEmpty "${__inURL}"  ; then        
+        return 1
+    fi
+
+    # If no argument given to push commad, then take the 
+    # the current revision 
+    # if push-arg is 'head', take the head ofthe URI passed to --source 
+    # Otherwise checkout the needed revision
+    local __inInputSourceFolder=""
+    local cleanupSrcFolder=false
+    if Str__isEmpty "${ARCV__VARS["push-arg"]}" ; then
+        __inInputSourceFolder="."        
+        ARCV__VARS["current-revision"]="current directory" #local actualRev="$($0 rev)"
+    elif Str__same "head" "${ARCV__VARS["push-arg"]}" ; then
+        __inInputSourceFolder="${ARCV__VARS["backupapptarget"]}/head/${ARCV__VARS["backupsrcBasename"]}"
+        ARCV__VARS["current-revision"]="HEAD (rev $(cat "${ARCV__VARS["backupapptarget"]}/head/REV"))"
+    else
+        local checkoutDir="."
+        local cmdCO="$0 co ${ARCV__VARS["push-arg"]} --source='${ARCV__VARS["backupsrcBasename"]}' --subproc -o ${checkoutDir}"
+        
+        if eval "$cmdCO" ; then
+            __inInputSourceFolder="${checkoutDir}/${ARCV__VARS["backupsrcBasename"]}-"
+
+            if Int__isInt "${ARCV__VARS["push-arg"]}" ; then
+                __inInputSourceFolder+="rev"   # "rev" prefix for revisions
+                ARCV__VARS["current-revision"]="revision ${ARCV__VARS["push-arg"]}"
+            else
+                ARCV__VARS["current-revision"]="tag ${ARCV__VARS["push-arg"]}"
+            fi
+
+            __inInputSourceFolder+="${ARCV__VARS["push-arg"]}" # Rev num or tag
+            cleanupSrcFolder=true
+        else
+            _exit -1 "Aborted push: failed to checkout revision or release '${ARCV__VARS["push-arg"]}'. It may not exist."
+        fi
+
+    fi
+
+    local retRestore=1
+    if mongodb__isURL "${__inURL}" ; then   
+        Arcv__pushMongoDB "${__inURL}" "${__inInputSourceFolder}"
+        retRestore=$?
+    else
+        _log_warn "'${__inURL}' is not a supported URI type"
+    fi
+
+    # Cleanup whatever the result if a checkout was done
+    if $cleanupSrcFolder ; then
+        _monitor "Cleaning up '${__inInputSourceFolder}'" rm -r "${__inInputSourceFolder}" &>/dev/null
+    fi
+
+    return $retRestore
+}
+
+:<<'EOF'
+Restores a MongoDB from a MongoDB dump file 
+@param[1] MongoDB URI
+@param[2] source input folder
+EOF
+Arcv__pushMongoDB() {
+    local __inURL="$1"
+    local __inInputSourceFolder="$2"
+
+    if ! mongodb__decodeURL "${__inURL}" Arcv__mongodb[host] Arcv__mongodb[port] Arcv__mongodb[dbName] ; then
+        _log_error "Failed to decode MongoDB URI '${__inURL}' (invalid?)"
+        return 1
+    fi
+
+    #_log_vars __inURL
+    local useSSHIfDistant=false    
+    local dumpVerNums=()
+    mongodb__dumpVersion dumpVerNums
+    if Array__sizeMatch dumpVerNums 0 ; then 
+        useSSHIfDistant=true
+    elif [ "${dumpVerNums[0]}" -lt 100 ] ; then 
+        useSSHIfDistant=true
+    else
+        useSSHIfDistant=false
+    fi
+    # Array__print dumpVerNums "." # DEBUG
+    #_log_vars useSSHIfDistant # DEBUG
+
+    local archivDatabaseName="mongo-db-${Arcv__mongodb[dbName]}.gz"
+    local mongoRestoreOptions="--drop" # Newer tables won't get lost
+
+    #_log_vars ARCV__VARS["root-resolved"] ARCV__VARS["backupsrc"] ARCV__VARS["headrev"] ARCV__VARS["current-revision"]
+    #ARCV__VARS["headrev"]
+    File__fileExists "${__inInputSourceFolder}/${archivDatabaseName}" || _exit -1 "$(realpath -m "${__inInputSourceFolder}/${archivDatabaseName}") does not exist"
+
+    local question="Restore ${__inURL} from source '${ARCV__VARS["backupsrcBasename"]}' (${ARCV__VARS["current-revision"]})? 
+ALL EXISTING DB DATA WILL GET LOST"
+    
+    if ! Input__confirm_high "$question" ; then 
+        echo
+        return 1
+    fi
+    echo
+
+    local taskMessage="Pushing data into '${Arcv__currentRepoData["fetch-url"]}'"
+    _monitor "$taskMessage" mongodb__restore "${__inURL}" "${__inInputSourceFolder}/${archivDatabaseName}" "$mongoRestoreOptions" $useSSHIfDistant
+}
+
+
+:<<'EOF'
+This shows the last logs at check-in
+@param[1] current revision
+@param[2] maximum number of logs shown
+EOF
+Arcv__showLastLogs() {
+    local __inCurrentVersion=$1
+    local nbMaxLogs=$2
+
+    _log_ifnot ${ARCV__VARS["silent"]} ""
+    if ${ARCV__VARS["silent"]} ; then 
+        return 0
+    fi
+
+    local fiveRevBackwardRev=0
+    if [ ${__inCurrentVersion} -gt 5 ] ; then
+        fiveRevBackwardRev=$(( ${__inCurrentVersion} - ${nbMaxLogs} ))
+    fi
+
+    _colorText "Previous logs:" "underline" && echo
+    #$0 log --to="$fiveRevBackwardRev" --subproc| grep -E -v ^[[:space:]]*$
+    echo
+
+    local subProc="${ARCV__VARS["subproc"]}"
+    local forceYes=false
+    if Input__testYesForcedInput ; then 
+        forceYes=true
+        Input__popForcedInput 
+    fi
+    ARCV__VARS["subproc"]=true
+
+    Arcv__showHistory ${__inCurrentVersion} $((${__inCurrentVersion}-1)) "$fiveRevBackwardRev"| grep -E -v ^[[:space:]]*$
+
+    # Restore initial subproc state and forced input
+    ARCV__VARS["subproc"]="${subProc}"
+    if $forceYes ; then 
+        Input__pushForcedInput "y" 
+    fi
+    echo
+}
+
+Arcv__manageCommitCycleBackup() {
+    local __inRevision="$1"
+
+    local revCycle=${Arcv__currentRepoData["rev-cycle"]:-0}
+    local revCycleBackup=${Arcv__currentRepoData["rev-cycle-backup"]:-false}
+    if Int__not0 $revCycle && $revCycleBackup; then
+        # In cyclic backups, revision number may wrap around 0 after call of Arcv__createRevision
+        # Let's anticipate this step and check whether version is 0
+        local nextVersion=$(( ${__inRevision} % $revCycle))
+        if Int__eq $nextVersion 0 ; then  
+            if ! _monitor "Performing cycle backup" $0 --source="${ARCV__VARS["backupsrcBasename"]}-cycles" -y -m "cycle backup for ${ARCV__VARS["backupsrcBasename"]}" ; then
+                _exit 129 "Cyclic backup failed!"
+            fi
+        fi
+    fi  
+}
+
+Arcv__manageCommitFetch() {
+    local -n __inDoRemoveAfterFetch=$1
+
+    if ${ARCV__VARS["fetch-update"]} && ! _undefined "${Arcv__currentRepoData["fetch-url"]}" && ! ${ARCV__VARS["checkformodif"]} ; then
+        local taskMessage="Updating by fetching '${Arcv__currentRepoData["fetch-url"]}'"
+        if _monitor "$taskMessage" Arcv__fetchUpdate "" "" true ; then
+            if ${ARCV__VARS["remove-after-direct-fetch-commit"]}  ; then
+                __inDoRemoveAfterFetch=true
+            fi
+
+            if ${ARCV__VARS["fetch-only"]} ; then
+                _quit "Fetch complete. No check-in initiated"
+            fi
+        else
+            _exit -1 "Aborted following fetch failure from ${Arcv__currentRepoData["fetch-url"]}"
+        fi
+    fi
+}
+
+:<<'EOF'
+@return 1 when no push was done, 0 otherwise
+EOF
+Arcv__manageCommitPush() {
+    if ${ARCV__VARS["push"]} ; then
+        if _undefined "${Arcv__currentRepoData["fetch-url"]}" ; then
+            echo
+            _exit -1 "Invalid use of push operation. 
+
+Current source folder '${ARCV__VARS["backupsrcBasename"]} has no associated URI. Please specify the URI with --source or change to the valid source folder"
+        fi
+
+        if ! Arcv__push "" ; then
+            _exit -1 "Aborted following push failure to ${Arcv__currentRepoData["fetch-url"]}"
+        fi
+
+        return 0
+    else 
+        return 1
+    fi
+}
+
+:<<'EOF'
+@return 1 when allowed, 0 when not allowed
+EOF
+
+Arcv__manageCommitInterval() {
+    local interval=${Arcv__currentRepoData["commit-interval"]:-0}
+    if Int__not0 $interval ; then
+
+        local headTime=0
+        Arcv__getInfoHeadTime headTime
+        
+        local elapsedTime
+        Date__timestamp elapsedTime
+        Int__dec elapsedTime "$headTime"
+
+        #_log_vars headTime elapsedTime interval
+        #_log "remaining $(($interval-$elapsedTime))"
+
+        # Using Int__nears enables to introduce a tolerance margin
+        if Int__nears "$elapsedTime" "$interval" 10 || Int__gt "$elapsedTime" "$interval"; then
+            return 1
+        else        
+            _log_high "$(($interval-$elapsedTime)) secs remaining before allowing next commit."
+            return 0
+        fi
+    else
+        return 1
+    fi  
+}
+
+:<<'EOF'
+This function is a dead-end, i.e. no further operation should be done,
+exception when ARCV__VARS["force-commit"] is true (forced commit)
+
+If first arg is 0, it means all is fine. Simply display the non change message
+
+Otherwise, this function handles the case where no content change was detected 
+but the SHA fingerprints do not match. Possible cause may be a file which timestamp 
+changed only, e.g. after a copy or a touch command.
+
+If --fix was specified, the hash is corrected, or an error message is displayed.
+
+@param[1] check result of initial SHA256 verification (0=ok)
+@param[2] current revision
+@param[3] recomputed hash for commit
+@param[4] initial hash
+@param[5] value of lastBackupappversiontarget of main loop
+EOF
+Arcv__manageNoDiffDetected() {
+    local __inCheckRes=$1
+    local __inArcVersion=$2
+    local __inHash="$3"
+    local __inLastHash="$4"
+    local __inLastBackupappversiontarget="$5"
+
+    if [ ${__inCheckRes} -eq 0 ]  ; then 
+        Arcv__showCheckinHeaderStatus ${__inCheckRes} ${__inArcVersion} "${__inHash}" "${__inLastHash}"  
+        
+        if ${ARCV__VARS["force-commit"]} ; then
+            return 0
+        else
+            _quit ""
+        fi
+    else
+        # If no change in file contents is detected, either fix the hash if requested or check the permission changes with the head. In all case, SHA must be recomputed
+        local resSHAComp=1             
+        local sha256Data=""   
+        Arcv__getSourceSHA256 __inHash sha256Data
+        resSHAComp=$?
+
+        if ${ARCV__VARS["fix-hash"]} ; then
+            if [ $resSHAComp -eq 0 ]; then
+                ARCV__VARS["backupappversiontarget"]="${__inLastBackupappversiontarget}"
+                if Arcv__updateCurrentTargetSHA256 "${__inHash}" ; then
+                    echo
+                    _log "Successfully reset hash to '${__inHash}'" 
+                    echo
+                    _quit "" # exec "$0" "--subproc"
+                else
+                    _exit -81 "Failed to update hash file for source dir. Please check the log."
+                fi
+            else
+                _exit -80 "Failed to recompute hash for source dir '${ARCV__VARS["backupsrc"]}'. Please check the log."
+            fi
+
+        else
+            echo "">&2
+            _log_err "            
+No content was changed in this folder, but the SHA fingerprints do not match. 
+
+Possible cause may be a file which timestamp changed only, e.g. after a copy or a touch command.
+
+You may run 'arcv co' to sync with head again or 'arcv --fix' to fix the fingerprint.
+"
+            _quit ""
+        fi
+    fi
+}
+
+Arcv__checkEditor() {
+    local editorApp
+    YAML__get ".editor" editorApp
+
+    if ! _undefined "$editorApp" && ! File__isExe "$editorApp" ; then
+        _exit -1 "File editor '$editorApp' either does not exist or is not reachable via PATH. Please set properly 'editor' parameter in configuration (valid value or nothing)." 
+    fi
 }
 
 Arcv__main() {
@@ -4601,6 +5829,7 @@ EOF
 
     YAML__get ".paging" ARCV__VARS["paging"]
 
+    Arcv__checkEditor
     Arcv__resolveStoragePath storage
 
     # Option consistency
@@ -4617,13 +5846,23 @@ EOF
     ARCV__VARS["backupapptarget"]="${ARCV__VARS["backuptarget"]}"           # Example Archive/sumo/sumo.archive, the sumo part will be added hereafter
     ARCV__VARS["backupappversiontarget"]="${ARCV__VARS["backuptarget"]}"    # Example Archive/sumo/sumo.archive/sumo.archiveX, the sumo part and version X will be added hereafter
 
+    # At startup ARCV__VARS["backupsrc"] is an empty string
+    # It is set either to an explicit source or current folder
+    # by default
+    #
+
     if [ -n "${ARCV__VARS["backupsrc"]}" ] &&  [ ! -d "${ARCV__VARS["backupsrc"]}" ] ; then
        _exit -1 "Source backup directory '${ARCV__VARS["backupsrc"]}' does not exist"
     elif [ -z "${ARCV__VARS["backupsrc"]}" ] ; then
 
-        if [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
-            Arcv__setExplicitSource "${ARCV__VARS["explicit_backupsrc"]}"
+        if ! Str__isEmpty "${ARCV__VARS["explicit_backupsrc"]}" ; then
+            if  Arcv__initMongoDBRepoReference "${ARCV__VARS["explicit_backupsrc"]}" ; then
+                ARCV__VARS["isFetchURL"]=true
+            else
+                Arcv__setExplicitSource "${ARCV__VARS["explicit_backupsrc"]}"
+            fi
         else
+            # This sets ARCV__VARS["backupsrc"] to the current workdirectory 
             File__cwd ARCV__VARS["backupsrc"]
             if [ $? -ne 0 ] ; then
                 _exit -1 "Failed to determine current working directory. Was it removed or no permission rights?"
@@ -4631,12 +5870,30 @@ EOF
         fi
     fi
 
-    if ([ -z "${ARCV__VARS["checkout"]}" ] && Str__isEmpty ${ARCV__VARS["hash_folder"]}) && [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
-        _exit -10 "--source is only valid for a checkout operation or explicit folder SHA256 computation"
+    if ${ARCV__VARS["fetch-update"]} && ! ${ARCV__VARS["checkin"]} ; then
+        _exit -10 "--fetch is only valid for check-in."
+    fi
+
+    if ! Str__isEmpty "${ARCV__VARS["checkout_folder"]}" && ${ARCV__VARS["checkin"]} ; then
+        _exit -10 "-o output folder is not allowed for a check-in. Please change to the target folder and retry."
+    fi
+    
+    if ${ARCV__VARS["revive"]} && Str__isEmpty "${ARCV__VARS["checkout"]}" ; then
+        _exit -12 "--revive is only valid when checking out (co command)"
+    fi
+
+    if ! ${ARCV__VARS["isFetchURL"]} && ${ARCV__VARS["remove-after-direct-fetch-commit"]} ; then
+        _exit -11 "--rm is only allowed in conjunction with --source=<URI>"
+    fi
+
+    if Int__not0 ${ARCV__VARS["revision-cycle"]} && ! ${ARCV__VARS["checkin"]} ; then
+        _exit -12 "--cycle is only allowed for the initial commit"
     fi
 
     # Create new archive directory if it does not exist
     local originbackupSrc="${ARCV__VARS["backupsrc"]}"
+    #_log_vars ARCV__VARS["backupsrc"]
+
     Arcv__setBackupSrc "$originbackupSrc"
 
     #echo "originbackupSrc : '$originbackupSrc' '${ARCV__VARS["backupsrcBasename"]}' '${ARCV__VARS["backupsrc"]}'" >&2
@@ -4654,16 +5911,95 @@ EOF
                 break
             fi
 
-            if [ ! -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
-                echo
-                _log_err "The source '${ARCV__VARS["explicit_backupsrc"]}' does not exist in the repository '${ARCV__VARS["backuptarget"]}'"
-                echo
-                _log "The available sources are:"
-                echo
-                Arcv__listSources "${ARCV__VARS["backuptarget"]}"
-                echo
+            # Note If an explicit source was specified which root could not be resolved,
+            # the app is exited directly from Arcv__checkRootDir as an error case
 
-                _quit ""
+            if ! Str__isEmpty "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
+                if ${ARCV__VARS["isFetchURL"]} && ${ARCV__VARS["fetch-update"]}; then  
+
+                    local question="Fetch '${ARCV__VARS["explicit_backupsrc"]}' into '${ARCV__VARS["backupsrcBasename"]}'"
+                    if ! ${ARCV__VARS["fetch-only"]} ; then
+                        question+=" and commit to repository"
+                    fi
+                    if ! Input__confirm_high "$question" ; then 
+                        echo
+                        _exit -1 "Aborted"
+                    fi
+                    echo
+
+:<<'EOF'
+                    if ! _monitor "Fetching "${ARCV__VARS["explicit_backupsrc"]}" into '${outputFolder}/${ARCV__VARS["backupsrcBasename"]}'" av -y co --source="${ARCV__VARS["explicit_backupsrc"]}" --output='${outputFolder}'; then
+                        _exit -1 "Aborted"
+                    fi
+EOF
+                    # Create a source folder named according to ARCV__VARS["backupsrcBasename"]
+                    # change into the directory and fetch the database archive
+                    # then call av -y to check in 
+                    _makeCd "${ARCV__VARS["backupsrcBasename"]}" || _exit -1 "Failed to change directory to '${ARCV__VARS["backupsrcBasename"]}'"
+
+                    if ! _monitor "Fetching "${ARCV__VARS["explicit_backupsrc"]}" into '${ARCV__VARS["backupsrcBasename"]}'" Arcv__fetchUpdate "${ARCV__VARS["explicit_backupsrc"]}" "." false ; then
+                        # Cleanup on error
+                        cd .. 
+                        rm -rf "${ARCV__VARS["backupsrcBasename"]}"
+                        _exit -1 "Failed"
+                    fi
+
+                    # Create the initial revision, not forgetting to forward relevant parameters
+                    # like fetch url and revision cycle
+                    if ${ARCV__VARS["fetch-only"]} ; then
+                        _quit "The source '${ARCV__VARS["backupsrcBasename"]}' was not added to the repository.
+To do so type 'av' inside the created folder, or call the same command with '--fetch' option.
+"
+                    else
+                        local cycleArg="${ARCV__VARS["revision-cycle"]}"
+                        if ${ARCV__VARS["cycle-save"]} ; then cycleArg+="+" ; fi
+
+                        if ! _monitor "Creating '${ARCV__VARS["backupsrcBasename"]}' in repository" av -y -m "Initial import from '${ARCV__VARS["explicit_backupsrc"]}'" --cm-cfg=".fetch-url=${ARCV__VARS["explicit_backupsrc"]}" --cycle="${cycleArg}" ; then
+                            _exit -1 "Repository creation failed. Aborted."
+                        fi
+
+                        # Handle the auto cleanup with --rm
+                        if ${ARCV__VARS["remove-after-direct-fetch-commit"]}  ; then
+                            cd .. # _makeCd called above, currently inside the source folder itself
+                            if ! _monitor "Cleaning up folder '${ARCV__VARS["backupsrcBasename"]}'" rm -r "${ARCV__VARS["backupsrcBasename"]}"; then
+                                _log_warn "Failed to cleanup folder '${ARCV__VARS["backupsrc"]}'. You may need to fix this issue manually."
+                            fi
+                        fi
+
+                        _quit ""
+                    fi
+                else
+                    if ${ARCV__VARS["isFetchURL"]} ; then
+
+                        echo
+                        if ${ARCV__VARS["push"]} ; then                        
+                            _exit -1 "Unable to push data to ${ARCV__VARS["explicit_backupsrc"]} because current source '${ARCV__VARS["backupsrcBasename"]}' is not under revision-control."
+                        else
+                            _log_err "The source folder '${ARCV__VARS["backupsrcBasename"]}' has not been created in repository yet for URI '${ARCV__VARS["explicit_backupsrc"]}'.
+
+Use --fetch to create '${ARCV__VARS["backupsrcBasename"]}' from the URI and put the fetched data under revision control.
+
+If you only want to checkout a folder containing the data fetched from '${ARCV__VARS["explicit_backupsrc"]}' without putting it under revision control, use 'co'.
+"
+                            echo
+                            _quit ""
+                        fi
+
+                        # The below code is obsolete. 
+                        # A new entry in the repository be now created/derived from any other source with an explicit source name
+:<<'EOF'
+                    else
+                        echo
+                        _log_err "The source '${ARCV__VARS["explicit_backupsrc"]}' does not exist in the repository '${ARCV__VARS["backuptarget"]}'"
+                        echo
+                        _log "The available sources are:"
+                        echo
+                        Arcv__listSources "${ARCV__VARS["backuptarget"]}"
+                        echo
+                        _quit ""
+EOF
+                    fi
+                fi
             fi
             
             # If there is no repository for the specified directory, 
@@ -4673,10 +6009,16 @@ EOF
                 _exit -1 "'$originbackupSrc' is currently not under version control. To create it, just type 'av'"
             fi
 
+            if ${ARCV__VARS["push"]} && ! ${ARCV__VARS["isFetchURL"]}; then
+                echo
+                _exit -1 "Invalid use of push operation. 
+
+No matching archive repository does exist for current folder '${ARCV__VARS["backupsrc"]}. Please specify the URI with --source or change to the valid source folder"
+            fi
+
             Arcv__getInfoAppArchiveRootDirPath ARCV__VARS["backupapptarget"]      
-            
             if [ ! -d "${ARCV__VARS["backupapptarget"]}" ] ; then
-                if ! ${ARCV__VARS["silent"]} ; then
+                if ! ${ARCV__VARS["silent"]} && ! Input__testYesForcedInput ; then
                     _log_warn "An archive repository does not exist yet for source folder '${ARCV__VARS["backupsrc"]}'."
                 fi            
 
@@ -4701,16 +6043,19 @@ EOF
                 else
                     # rev command may be called immediately after the above folder creation
                     # but REV is not yet initialized nor the archive revision subfolders
-                    _log_warn "
+                    if ! Input__testYesForcedInput ; then
+                        _log_warn "
             The archive folder '${ARCV__VARS["backupapptarget"]}' exists.
             But ${ARCV__VARS["backupsrc"]} on ${ARCV__VARS["localHostName"]}/${ARCV__VARS["localHostMAC"]} is not registered as a valid source folder. 
             Continue only if you're 100% it is inline with the repository!
             Possible data losses!
     "
-                    if ! Input__confirm_high "Do you want to register as source folder from this host?" ; then                 
-                        _exit -1 "Aborted"
-                    fi
+                        if ! Input__confirm_high "Do you want to register as source folder from this host?" ; then                 
+                            _exit -1 "Aborted"
+                        fi
                     echo
+                    fi
+
                     Arcv__registerSource 
                 fi
             fi
@@ -4726,34 +6071,102 @@ EOF
         fi
     done
 
-
     if ${ARCV__VARS["hash"]} && ! Str__isEmpty ${ARCV__VARS["hash_folder"]} ; then
         Arcv__showFolderSHA256 "${ARCV__VARS["hash_folder"]}"
         return $?
     fi
 
     local arcVersion=0
-
     if  $repoNewlyCreated ; then
         # This will set ARCV__VARS["headversion"] and ARCV__VARS["droppedsrc"]
         Arcv__initiateRevision $arcVersion
         return $?
     else
+        if [ -n "${ARCV__VARS["checkout"]}" ] && ${ARCV__VARS["isFetchURL"]} ; then
+            ARCV__VARS["backupapptarget"]="${ARCV__VARS["backuptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive"
+
+            if File__dirExists "${ARCV__VARS["backupapptarget"]}" ; then
+                ARCV__VARS["root-resolved"]=true
+            else
+                _exit -1 "An archive repository does not exist for URI '${ARCV__VARS["explicit_backupsrc"]}'."
+            fi
+        fi
+
+        #_log_vars ARCV__VARS["backuptarget" ARCV__VARS["backupapptarget"]
+        if Str__same "${ARCV__VARS["backuptarget"]}" "${ARCV__VARS["backupapptarget"]}" ; then
+            _exit -1 "${ARCV__VARS["backupsrcBasename"]} is not under revision-control in repository ${ARCV__VARS["backuptarget"]}"
+        fi
+
+        if ${ARCV__VARS["checkin"]} ; then
+            if Int__not0 ${ARCV__VARS["revision-cycle"]} ; then
+                _exit -12 "--cycle is only allowed for the initial commit"
+            fi
+
+            local currentSrcBasename=""
+            File__basename "${ARCV__VARS["backupsrc"]}" currentSrcBasename
+            if ${ARCV__VARS["isFetchURL"]} && "${ARCV__VARS["fetch-update"]}" ; then
+                # If the current working directory does not match an exist source folder corresponding to the URL, then fetch into a dedicated folder
+                if ! Str__same "$currentSrcBasename" "${ARCV__VARS["backupsrcBasename"]}" || _run_check 255 av check &>/dev/null ; then
+                    ARCV__VARS["backupsrc"]="${ARCV__VARS["backupsrc"]}/${ARCV__VARS["backupsrcBasename"]}" 
+                    _makeCd "${ARCV__VARS["backupsrc"]}"
+                fi
+
+            elif ${ARCV__VARS["isFetchURL"]} && ${ARCV__VARS["push"]} ; then
+
+                # By default use the head revision when no push arg revision was passed
+                if Str__isEmpty "${ARCV__VARS["push-arg"]}" ; then
+                    ARCV__VARS["push-arg"]="head"
+                fi
+                
+                if ! Arcv__push "${ARCV__VARS["explicit_backupsrc"]}" ; then
+                    _exit -1 "Aborted. failed to push to ${ARCV__VARS["explicit_backupsrc"]}"
+                fi
+
+                _quit ""
+
+            else # if ${ARCV__VARS["root-resolved"]}  ; then
+
+                if ! Str__same "$currentSrcBasename" "${ARCV__VARS["backupsrcBasename"]}" && ! ${ARCV__VARS["force-default-entry"]}; then
+                    echo
+                    _log_warn "Attempting to check-in into source '${ARCV__VARS["backupsrcBasename"]}' from a different folder name '${currentSrcBasename}'"
+                    if ! _run_check 255 av check &>/dev/null ; then
+                        _log_warn "'${currentSrcBasename}' is also under revision control!"
+                    fi
+                    _log_warn "POSSIBLE DATA LOSS for source '${ARCV__VARS["backupsrcBasename"]}'!"
+
+                    echo
+                    local baseSourceFolderName=""
+                    if Input__sentence "Please enter the name of source folder in the repository where to checkin to confirm or anything else to abort" "${ARCV__VARS["backupsrcBasename"]}" baseSourceFolderName ; then
+                        if ! Str__same "${baseSourceFolderName}" "${ARCV__VARS["backupsrcBasename"]}" ; then
+                            _exit -1 "Aborted."
+                        fi
+                    else
+                        _exit -1 "Aborted."
+                    fi                        
+                        #if ! Input__confirm_high "Checking in into '${ARCV__VARS["backupsrcBasename"]}' from folder '${currentSrcBasename}'. Continue" ; then
+                fi
+            fi
+        fi
+
         ARCV__VARS["headversion"]="${ARCV__VARS["backupapptarget"]}/head"
         ARCV__VARS["droppedsrc"]="${ARCV__VARS["backupapptarget"]}/dropped"
 
-	    # Determine head revision and store it in ARCV__VARS["headrev"]
+        # Determine head revision and store it in ARCV__VARS["headrev"]
         if ! ${ARCV__VARS["rev"]} ; then # If not "rev" command
 
             local revFile="${ARCV__VARS["headversion"]}/REV"
-            if ! File__fileExists "$revFile" ; then
+
+            if  File__fileExists "$revFile" ; then
+                arcVersion="$(cat "${revFile}")"                
+            #elif [ -n "${ARCV__VARS["checkout"]}" ] && ${ARCV__VARS["isFetchURL"]} ; then
+                # This is to allow URI checkout with needing an actual repository
+            #    arcVersion=0
+            else
                 _exit -1 "Failed to determine current revision, '$revFile' file not found. Repository may be corrupt."
             fi
-            arcVersion="$(cat "${revFile}")"
             ARCV__VARS["headrev"]=$arcVersion
         fi
     fi
-
 
 :<<'EOF'
 if ! ${ARCV__VARS["rev"]} ; then # debug
@@ -4764,6 +6177,8 @@ fi
 EOF
 #exit 0
 
+    # lastBackupappversiontarget is mainly intended for check-in operation
+    # and --fix
     lastBackupappversiontarget=""
     local headRevFile="${ARCV__VARS["headversion"]}/REV"
 
@@ -4839,12 +6254,20 @@ EOF
             #_log "backupapptarget: '${ARCV__VARS["backupapptarget"]}' '$arcVersion'"
             ARCV__VARS["backupappversiontarget"]="${ARCV__VARS["backupapptarget"]}/${ARCV__VARS["backupsrcBasename"]}.archive${arcVersion}"
         fi
-        if [ ! -d "${ARCV__VARS["backupappversiontarget"]}" ] ; then 
-                _exit -6 "Revision ${arcVersion} does not exist."
-                #_exit -6 "Revision ${arcVersion} does not exist (no folder ${ARCV__VARS["backupappversiontarget"]}) ! The repository may be corrupted. "
-        fi
 
-        lastBackupappversiontarget="${ARCV__VARS["backupappversiontarget"]}"
+        # Test existence of archive folder except when checking out from an URI without having
+        # a revision number        
+        if [ ! -d "${ARCV__VARS["backupappversiontarget"]}" ] ; then 
+                if [ -n "${ARCV__VARS["checkout"]}" ] && ${ARCV__VARS["isFetchURL"]} ; then
+                    # This is to allow URI checkout with needing an actual repository
+                    :
+                else
+                    _exit -6 "Revision ${arcVersion} does not exist."
+                fi
+                #_exit -6 "Revision ${arcVersion} does not exist (no folder ${ARCV__VARS["backupappversiontarget"]}) ! The repository may be corrupted. "
+        else
+            lastBackupappversiontarget="${ARCV__VARS["backupappversiontarget"]}"
+        fi
     fi
 
 :<<'EOF'
@@ -4888,7 +6311,12 @@ EOF
 
     local diffRevFolder=""
     local diffRevFolderIsTmp=""
-    Arcv__getRevisionImage "${ARCV__VARS["diff_rev"]}" diffRevFolder diffRevFolderIsTmp
+
+    if [ -n "${ARCV__VARS["checkout"]}" ] && ${ARCV__VARS["isFetchURL"]} ; then
+        Str__same "${ARCV__VARS["diff_rev"]}" "head" || _exit -1 "A checkout from an URL does not accept any argument (passed '${ARCV__VARS["diff_rev"]}')"
+    else
+        Arcv__getRevisionImage "${ARCV__VARS["diff_rev"]}" diffRevFolder diffRevFolderIsTmp
+    fi
 
     local checkRes=0
     local checkPermRes=0
@@ -4900,10 +6328,8 @@ EOF
 
         # For a checkout of an explicit source no SHA256 needs to be computed and crosschecked
         # This also avoid to get a warning regarding ARCV__VARS["backupsrc"]
-        if [ -z "${ARCV__VARS["explicit_backupsrc"]}" ] ; then
-            Arcv__compAndCheckSourceSHA256 "${lastBackupappversiontarget}" sha256 lastSha256 sha256Data
-            checkRes=$?
-        fi
+        Arcv__compAndCheckSourceSHA256 "${lastBackupappversiontarget}" sha256 lastSha256 sha256Data
+        checkRes=$?
 
         # There was an attempt to check the permission only changes from here, but this can
         # be achieved only on basis of files that have been identified as identifical with the diff
@@ -4931,6 +6357,9 @@ EOF
     #
     # Actual command execution
     #
+    # Make current revision accessible to functions called for running the commands
+    # and switch to root of the source folder
+    ARCV__VARS["current-revision"]=$arcVersion
     if ${ARCV__VARS["revisionlog"]} ; then
         local fromRevValue="${ARCV__VARS[from_rev_or_tag]}" # If empty, it will start from arcVersion
         local toRevValue="${ARCV__VARS[to_rev_or_tag]}"
@@ -5013,7 +6442,7 @@ EOF
         # - NOT in interactive mode
         # - NOT in another format than default 
         # - there exists at least one release 
-        if ${ARCV__VARS["changelog"]} && ! $interactive && (Str__isEmpty "${ARCV__VARS["output_format"]}" || Str__same "${ARCV__VARS["output_format"]}" "plain") && ! Str__isEmpty "${toRevValue}" ; then
+        if ${ARCV__VARS["changelog"]} && ! $interactive && (Str__isEmpty "${ARCV__VARS["output_format"]}" || Str__same "${ARCV__VARS["output_format"]}" "plain") && ! _undefined "${toRevValue}" ; then
             local revisionText=$(( $toRevValue - 1))
             local releaseTag
             Arcv__getInfoLatestReleaseTag releaseTag
@@ -5088,14 +6517,45 @@ EOF
         Arcv__branchoff $arcVersion "${diffRevFolder}" "${diffRevFolderIsTmp}"
     elif [ -n "${ARCV__VARS["checkout"]}" ] ; then
         Arcv__checkout $arcVersion "${diffRevFolder}" "${diffRevFolderIsTmp}"
+    #
+    # Make this test mandatory immediately before the block hereafter to handle
+    # explicitly unsupported commands
+    #
     elif ! ${ARCV__VARS["checkin"]} && ! ${ARCV__VARS["checkformodif"]} ; then
         _log_err "Not implemented"
+    #
+    # Checkin command handling is hereafter
+    #
     else
+        #
+        # Prior to any checkin-related processing, handle the following
+        # order matters!
+        # - allowed interval between 2 commits
+        # - the push function
+        # - cycle backups if necessary
+        # - the fetch function
+        #
+
+        if Arcv__manageCommitInterval ;  then 
+            _exit 127 "Nothing committed."
+        fi
+
+        if Arcv__manageCommitPush ;  then 
+            return 0
+        fi
+        Arcv__manageCommitCycleBackup $arcVersion
+        
+        local doRemoveAfterFetch=false
+        Arcv__manageCommitFetch doRemoveAfterFetch
+
         #_log_vars arcVersion repoNewlyCreated
+
+        #
+        # From here on, manage actually the commit
+        #
 
         local excludeDroppedFilesList=""
         local allowCommand=true
-        
         
         # NO: the permission-only changes must be checked
         #if [ $checkRes -eq 0 ] ; then allowCommand=false ; fi
@@ -5253,7 +6713,8 @@ ${diffBinaryFiles}"
                             onlyInHead="${onlyInHead}
 $line"
                         fi
-                        echo "- $(realpath -s --relative-to="${ARCV__VARS["headversion"]}" "$line")" >> "${excludeDroppedFilesList}"
+                        local relpathDroppedFile="$(realpath -s --relative-to="${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}" "$line")"
+                        echo "- /${relpathDroppedFile}" >> "${excludeDroppedFilesList}"
 
                     else
                         if [ -z "$onlyInCurrent" ] ; then
@@ -5286,8 +6747,19 @@ $line"
                     if [ ! -L "${sameFileName}" ] ; then
                         sameFilesBasenames+=("${sameFileName}")
                     fi
-                    echo "- ${ARCV__VARS["backupsrcBasename"]}/$sameFileName" >> "${excludeFilesTmp}"
-                    #echo "- $sameFile" >> "${excludeFilesTmp}"
+                    
+                    # Use this exclude line if the source folder of rsync's command used for check-in
+                    # has no trailing '/' which is not the case anymore
+                    #echo "- ${ARCV__VARS["backupsrcBasename"]}/$sameFileName" >> "${excludeFilesTmp}"
+
+                    # Use this exclude line if the source folder of rsync's command used for check-in has a trailing '/'. Please check the comment following too
+                    echo "- /${sameFileName}" >> "${excludeFilesTmp}"
+
+                    # IMPORTANT:
+                    # With a trailing slash (/path/to/source/): The root of the transfer is 
+                    # the contents of that  folder. --exclude='/file.txt' targets /path/to/source/file.txt.
+                    # Without a trailing slash (/path/to/source): The root of the transfer is the folder itself. To exclude the top-level file, you would need to include the folder name: --exclude='/source/file.txt'.
+                    # To keep your syntax clean and predictable, it is usually easiest to use the trailing slash on # your source directory.
                 done
                 #echo "${sameFiles}" > "${excludeFilesTmp}"
                 excludeFilesCmd="--exclude-from=${excludeFilesTmp}"
@@ -5353,17 +6825,20 @@ $line"
         if $allowCommand ; then
             local revLog=""
             local showLastLogs=false
+            local addedFiles=()
+            local deletedFiles=()
+            local changedFiles=()
             local permissionOnlyChangeFiles=()
 
             if [ $arcVersion -gt 0 ] ; then
                 if ! Input__testYesForcedInput && ! ${ARCV__VARS["silent"]} && ! ${ARCV__VARS["check-in-list-only"]} ; then
-                    Arcv__menuFileAction "Changed" "${ARCV__VARS["backupsrc"]}" "$diffFiles" revLog
+                    Arcv__menuFileAction "Changed" "${ARCV__VARS["backupsrc"]}" "$diffFiles" revLog changedFiles
                 else
-                    Arcv__listCommitFiles "Changed" "${ARCV__VARS["backupsrc"]}" "$diffFiles" revLog
+                    Arcv__listCommitFiles "Changed" "${ARCV__VARS["backupsrc"]}" "$diffFiles" revLog changedFiles
                 fi
                 
-                Arcv__listCommitFiles "New" "${ARCV__VARS["backupsrc"]}" "$onlyInCurrent" revLog
-                Arcv__listCommitFiles "Deleted" "${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}" "$onlyInHead" revLog
+                Arcv__listCommitFiles "New" "${ARCV__VARS["backupsrc"]}" "$onlyInCurrent" revLog addedFiles
+                Arcv__listCommitFiles "Deleted" "${ARCV__VARS["headversion"]}/${ARCV__VARS["backupsrcBasename"]}" "$onlyInHead" revLog deletedFiles
 
                 Arcv__listPermissionChanges "Permission-only change" revLog sameFilesBasenames  "$onlyInHead" permissionOnlyChangeFiles
                 #_log_vars revLog
@@ -5379,62 +6854,15 @@ $line"
                 showLastLogs=true
             fi
 
-            #
             # If automatic log is empty, it means there was no content change
-            # This block handles the case where no content change was detected  but the SHA fingerprints do not match. 
-            # Possible cause may be a file which timestamp changed only, e.g. after a copy or a touch command.
-            # User may run 'arcv co' to sync with head again or 'arcv --fix' to fix the fingerprint.
-            #
             if Str__isEmpty "${revLog}" ; then  
-                if [ $checkRes -eq 0 ]  ; then 
-                    Arcv__showCheckinHeaderStatus $checkRes $arcVersion "$sha256" "$lastSha256"  
-                    return 0          
-                else
-                    # If no change in file contents is detected, either fix the hash if requested or check the permission changes with the head. In all case, SHA must be recomputed
-                    local resSHAComp=1                
-                    Arcv__getSourceSHA256 sha256 sha256Data
-                    resSHAComp=$?
-
-                    if ${ARCV__VARS["fix-hash"]} ; then
-                        if [ $resSHAComp -eq 0 ]; then
-                            ARCV__VARS["backupappversiontarget"]="${lastBackupappversiontarget}"
-                            if Arcv__updateCurrentTargetSHA256 "${sha256}" ; then
-                                echo
-                                _log_high "Successfully reset hash to '${sha256}'" 
-                                echo
-                                exec "$0" "--subproc"
-                            fi
-                        else
-                            _exit -80 "Failed to recompute hash for source dir '${ARCV__VARS["backupsrc"]}'. Check-in aborted."
-                        fi
-
-                    else
-                        echo "">&2
-                        _log_err "
-No content was changed in this folder, but the SHA fingerprints do not match. 
-Possible cause may be a file which timestamp changed only, e.g. after a copy or a touch command.
-You may run 'arcv co' to sync with head again or 'arcv --fix' to fix the fingerprint.
-    "
-                        _quit ""
-                    fi
-                fi
+                Arcv__manageNoDiffDetected $checkRes $arcVersion "$sha256" "$lastSha256" "${lastBackupappversiontarget}"
+                # Arcv__manageNoDiffDetected is a dead-end, this line should never be reached, except on forced commit
             fi
 
-
             # Show last logs at last before actual commit
-            if $showLastLogs; then
-                if [ ! -z "${revLog}" ] ; then    
-                    _log_ifnot ${ARCV__VARS["silent"]} ""
-                    if ! ${ARCV__VARS["silent"]} ; then 
-                        local fiveRevBackwardRev=0
-                        if [ ${arcVersion} -gt 5 ] ; then
-                            fiveRevBackwardRev=$(( $arcVersion - 5 ))
-                        fi
-                        _colorText "Previous logs:" "underline" && echo
-                        $0 log --to="$fiveRevBackwardRev" --subproc| grep -E -v ^[[:space:]]*$
-                        echo
-                    fi
-                fi
+            if $showLastLogs && ! Str__isEmpty "${revLog}" ; then    
+                Arcv__showLastLogs $arcVersion 5              
             fi
 
             # Handle dry checkin request
@@ -5489,10 +6917,16 @@ You may run 'arcv co' to sync with head again or 'arcv --fix' to fix the fingerp
                 if [ -f "${excludeFilesTmp}" ] ; then
                     local tmp1=""
                     File__createTempFile tmp1
-                    local excludeString="- ${ARCV__VARS["backupsrcBasename"]}/${permOnlyChangedFile}"
+
+                    # Use this exclude line if the source folder of rsync's command used for check-in
+                    # has no trailing '/' which is not the case anymore
+                    #local excludeString="- ${ARCV__VARS["backupsrcBasename"]}/${permOnlyChangedFile}"
+
+                    # Use this exclude line if the source folder of rsync's command used for check-in has atrailing '/'
+                    local excludeString="- /${permOnlyChangedFile}"
 
                     #_log_vars excludeString
-                    cat "${excludeFilesTmp}" | grep -v -E ^"$excludeString" > "$tmp1"
+                    cat "${excludeFilesTmp}" | grep -v -E ^"${excludeString}" > "$tmp1"
                     cp "$tmp1" "${excludeFilesTmp}"
                 fi
             done
@@ -5508,14 +6942,35 @@ You may run 'arcv co' to sync with head again or 'arcv --fix' to fix the fingerp
                 _exit -80 "Failed to recompute hash for source dir '${ARCV__VARS["backupsrc"]}'. Check-in aborted."
             fi
 
-            Arcv__createRevision $arcVersion "$revLog" "${sha256}" "${excludeFilesCmd}" "${excludeFilesTmp}" "${excludeDroppedFilesList}"            
+            Arcv__createRevision arcVersion "$revLog" "${sha256}" "${excludeFilesCmd}" "${excludeFilesTmp}" "${excludeDroppedFilesList}" addedFiles deletedFiles changedFiles
             if [ $? -eq 0 ] ; then
                 if ${ARCV__VARS["verbose"]} ; then
                     _log_high "Committed revision $arcVersion signed $sha256"
                 else
                     _log_high "Committed revision $arcVersion signed ${sha256:0:16}"
                 fi
+
+                #
+                # Make cleanup ordered by --rm for fetched URIs
+                #
+                if $doRemoveAfterFetch ; then
+                    local parentDir=""
+                    File__dirname "${ARCV__VARS["backupsrc"]}" parentDir
+                    local srcBasename=""
+                    File__basename "${ARCV__VARS["backupsrc"]}" srcBasename
+
+                    # Do not use push/pop, because current working directory is likely to be
+                    # the source itself e.g. when carrying a direct fetch-commit 
+                    # There's anyway no further operation beyond it
+                    cd "${parentDir}"
+                    if ! _monitor "Cleaning up folder '${srcBasename}'" rm -r "${srcBasename}"; then
+                        _log_warn "Failed to cleanup folder '${ARCV__VARS["backupsrc"]}'. You may need to fix this issue manually."
+                    fi
+                    #_backCd # NO SEE COMMENT ABOVE
+                fi
             else
+                _log_error "Commit failed for revision $arcVersion signed $sha256"
+                _log_error "Please check manually what's going on with folder '${ARCV__VARS["backupsrc"]}'"
                 return 1
             fi
         else
